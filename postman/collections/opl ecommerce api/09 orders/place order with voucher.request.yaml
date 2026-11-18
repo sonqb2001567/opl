@@ -1,0 +1,40 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/orders'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "shippingAddress": "123 Đường Test, Quận 1, TP.HCM",
+      "paymentMethod": "COD",
+      "voucherCode": "{{voucherCode}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Đặt hàng COD kèm voucher thành công (201)', () => {
+        pm.response.to.have.status(201);
+        const order = pm.response.json().order;
+        pm.expect(order.status).to.eql('PENDING');
+        pm.expect(order.paymentStatus).to.eql('UNPAID');
+        pm.expect(order.orderDetails.length).to.eql(2);
+        pm.collectionVariables.set('orderId', order.id);
+      });
+      pm.test('Tổng tiền do backend tính đúng công thức', () => {
+        const order = pm.response.json().order;
+        const subtotal =
+          2 * Number(pm.collectionVariables.get('productPrice')) +
+          1 * Number(pm.collectionVariables.get('product2Price'));
+        const discount = Number(pm.collectionVariables.get('voucherDiscount'));
+        const shippingFee = Number(pm.collectionVariables.get('shippingFee'));
+        pm.expect(Number(order.discountAmount)).to.eql(discount);
+        pm.expect(Number(order.shippingFee)).to.eql(shippingFee);
+        pm.expect(Number(order.totalAmount)).to.eql(subtotal - discount + shippingFee);
+      });

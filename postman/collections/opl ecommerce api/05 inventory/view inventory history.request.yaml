@@ -1,0 +1,22 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/inventory/history?productId={{productId}}'
+order: 11000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+queryParams:
+  - key: productId
+    value: '{{productId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Lịch sử kho của sản phẩm 1 (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res).to.be.an('array');
+        // Đã có 3 giao dịch: nhập 100, xuất 20, điều chỉnh -5
+        pm.expect(res.length).to.be.at.least(3);
+        res.forEach((t) => pm.expect(t.productId).to.eql(Number(pm.collectionVariables.get('productId'))));
+      });

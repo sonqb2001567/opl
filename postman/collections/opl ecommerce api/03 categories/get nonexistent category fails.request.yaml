@@ -1,0 +1,11 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/categories/999999'
+order: 7000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Danh mục không tồn tại (404)', () => {
+        pm.response.to.have.status(404);
+      });

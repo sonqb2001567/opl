@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/vouchers/check/{{voucherCode}}'
+order: 8000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Mã hợp lệ trả về valid=true (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.valid).to.eql(true);
+        pm.expect(Number(res.discountValue)).to.eql(20000);
+      });

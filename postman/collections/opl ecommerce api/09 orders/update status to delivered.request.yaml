@@ -1,0 +1,25 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/orders/{{orderId}}/status'
+order: 12000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "status": "DELIVERED"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Giao hàng thành công, đơn COD tự chuyển sang đã thanh toán (200)', () => {
+        pm.response.to.have.status(200);
+        const order = pm.response.json().order;
+        pm.expect(order.status).to.eql('DELIVERED');
+        pm.expect(order.paymentStatus).to.eql('PAID');
+      });

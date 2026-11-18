@@ -1,0 +1,12 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/vouchers/check/{{voucherCode}}'
+order: 11000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Mã đã ngừng trả về valid=false (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().valid).to.eql(false);
+      });

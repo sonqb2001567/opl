@@ -1,0 +1,20 @@
+$kind: collection
+name: OPL Ecommerce API
+description: |-
+  Test toàn bộ API của hệ thống ecommerce (NestJS + Prisma).
+  Chạy theo thứ tự folder từ trên xuống để test flow E2E:
+  đăng ký/đăng nhập -> tạo nhân viên -> danh mục -> sản phẩm -> nhập kho
+  -> voucher -> giỏ hàng -> đặt hàng -> xử lý đơn -> đánh giá -> báo cáo -> hủy đơn.
+
+  Yêu cầu trước khi chạy:
+  1. Server đang chạy tại baseUrl (mặc định http://localhost:3000)
+  2. DB đã có tài khoản admin (chạy prisma/seed-admin.sql): admin@test.com / admin123
+variables:
+  - key: baseUrl
+    value: 'http://localhost:3000'
+  - key: adminEmail
+    value: 'admin@test.com'
+  - key: adminPassword
+    value: 'admin123'
+  - key: userPassword
+    value: '123456'

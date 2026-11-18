@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/orders/my'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Lịch sử mua hàng của khách (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res).to.be.an('array');
+        pm.expect(res.map((o) => o.id)).to.include(Number(pm.collectionVariables.get('orderId')));
+      });

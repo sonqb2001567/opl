@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/reviews'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": 999999,
+      "rating": 5
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Đánh giá sản phẩm không tồn tại (404)', () => {
+        pm.response.to.have.status(404);
+      });

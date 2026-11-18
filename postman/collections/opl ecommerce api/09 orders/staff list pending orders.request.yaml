@@ -1,0 +1,21 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/orders?status=PENDING'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+queryParams:
+  - key: status
+    value: PENDING
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Nhân viên kho xem đơn chờ xử lý (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res).to.be.an('array');
+        pm.expect(res.map((o) => o.id)).to.include(Number(pm.collectionVariables.get('orderId')));
+        res.forEach((o) => pm.expect(o.status).to.eql('PENDING'));
+      });

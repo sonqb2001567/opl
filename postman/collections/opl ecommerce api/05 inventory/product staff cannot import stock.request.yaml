@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/inventory/import'
+order: 3000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": {{productId}},
+      "quantity": 1
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Product Staff không được nhập kho (403)', () => {
+        pm.response.to.have.status(403);
+      });

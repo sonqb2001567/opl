@@ -1,0 +1,25 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reports/low-stock?threshold=5'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+queryParams:
+  - key: threshold
+    value: '5'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Báo cáo sản phẩm sắp hết hàng (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.threshold).to.eql(5);
+        pm.expect(res.lowStockProducts).to.be.an('array');
+        const ids = res.lowStockProducts.map((p) => p.id);
+        // Sản phẩm 2: nhập 6, bán 1 -> còn 5 (<= ngưỡng)
+        pm.expect(ids).to.include(Number(pm.collectionVariables.get('productId2')));
+        // Sản phẩm 3 chưa nhập kho: tồn 0
+        pm.expect(ids).to.include(Number(pm.collectionVariables.get('productId3')));
+      });

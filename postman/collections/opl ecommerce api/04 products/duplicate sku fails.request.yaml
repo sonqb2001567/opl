@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Sản phẩm trùng SKU",
+      "skuCode": "{{productSku1}}",
+      "price": 99000,
+      "categoryId": {{categoryId}}
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('SKU trùng phải bị từ chối (400)', () => {
+        pm.response.to.have.status(400);
+      });

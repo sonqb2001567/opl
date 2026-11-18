@@ -1,0 +1,28 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/categories'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "categoryName": "{{tempCategoryName}}"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Danh mục tạm, dùng để test xóa danh mục rỗng ở cuối folder
+      pm.collectionVariables.set('tempCategoryName', 'Danh mục tạm ' + Date.now());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo danh mục tạm thành công (201)', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('tempCategoryId', pm.response.json().id);
+      });

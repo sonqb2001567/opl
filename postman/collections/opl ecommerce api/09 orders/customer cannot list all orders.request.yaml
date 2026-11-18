@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/orders'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Khách không được xem danh sách đơn toàn hệ thống (403)', () => {
+        pm.response.to.have.status(403);
+      });

@@ -1,0 +1,28 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/auth/login'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "{{customerEmail}}",
+      "password": "{{userPassword}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Đăng nhập thành công (201)', () => {
+        pm.response.to.have.status(201);
+      });
+      pm.test('Có accessToken', () => {
+        const res = pm.response.json();
+        pm.expect(res.accessToken).to.be.a('string');
+        pm.expect(res.user.role).to.eql('CUSTOMER');
+        pm.collectionVariables.set('customerToken', res.accessToken);
+        pm.collectionVariables.set('customerId', res.user.id);
+      });

@@ -1,0 +1,16 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/inventory/stock/{{productId}}'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Hủy đơn thì hoàn kho đúng số lượng (200)', () => {
+        pm.response.to.have.status(200);
+        // Sau folder 05 tồn 75, đơn 1 lấy 2, đơn 2 lấy 1 rồi hủy hoàn lại 1 => 73
+        pm.expect(pm.response.json().stock).to.eql(73);
+      });

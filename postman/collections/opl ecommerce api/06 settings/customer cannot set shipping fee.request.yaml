@@ -1,0 +1,22 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/settings/shipping-fee'
+order: 3000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "shippingFee": 0
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Khách hàng không được cấu hình phí ship (403)', () => {
+        pm.response.to.have.status(403);
+      });

@@ -1,0 +1,4 @@
+$kind: collection
+name: 09 Orders
+description: Khách đặt hàng từ giỏ, nhân viên kho xử lý đơn theo quy trình PENDING -> PREPARING -> SHIPPING -> DELIVERED
+order: 9000

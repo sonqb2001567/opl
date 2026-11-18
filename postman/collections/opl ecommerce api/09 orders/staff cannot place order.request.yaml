@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/orders'
+order: 3000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "shippingAddress": "Kho hàng",
+      "paymentMethod": "COD"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Nhân viên không được đặt hàng (403)', () => {
+        pm.response.to.have.status(403);
+      });

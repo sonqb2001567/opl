@@ -1,0 +1,15 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/reviews/{{reviewId}}/restore'
+order: 12000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Admin khôi phục đánh giá (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().status).to.eql('VISIBLE');
+      });

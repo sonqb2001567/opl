@@ -1,0 +1,19 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/products/{{productId}}'
+order: 10000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Chi tiết sản phẩm kèm tồn kho + đánh giá (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.id).to.eql(Number(pm.collectionVariables.get('productId')));
+        // Chưa nhập kho, chưa có đánh giá
+        pm.expect(res.stock).to.eql(0);
+        pm.expect(res.inStock).to.eql(false);
+        pm.expect(res.averageRating).to.eql(0);
+        pm.expect(res.reviewCount).to.eql(0);
+        pm.expect(res.category).to.be.an('object');
+      });

@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/cart'
+order: 10000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Giỏ hàng trống sau khi xóa (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.items.length).to.eql(0);
+        pm.expect(res.subtotal).to.eql(0);
+      });

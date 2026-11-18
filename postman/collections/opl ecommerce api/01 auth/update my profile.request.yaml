@@ -1,0 +1,26 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/auth/me'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "fullName": "Khách Hàng Đã Sửa",
+      "phoneNumber": "0909999999"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Cập nhật profile thành công', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.fullName).to.eql('Khách Hàng Đã Sửa');
+        pm.expect(res.phoneNumber).to.eql('0909999999');
+      });

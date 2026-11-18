@@ -1,0 +1,29 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/cart/items'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": {{productId}},
+      "quantity": 2
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Thêm sản phẩm 1 vào giỏ (201)', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.expect(res.items.length).to.eql(1);
+        const item = res.items.find((i) => i.product.id === Number(pm.collectionVariables.get('productId')));
+        pm.expect(item.quantity).to.eql(2);
+        pm.expect(res.subtotal).to.eql(2 * Number(pm.collectionVariables.get('productPrice')));
+        pm.collectionVariables.set('cartItemP1Id', item.id);
+      });

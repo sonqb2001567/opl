@@ -1,0 +1,31 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products'
+order: 3000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Nón test chưa mua",
+      "skuCode": "{{productSku3}}",
+      "price": 50000,
+      "categoryId": {{categoryId}},
+      "description": "Không ai mua - dùng test chặn đánh giá khi chưa mua và báo cáo hết hàng"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('productSku3', 'SKU3-' + Date.now());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo sản phẩm chưa mua thành công (201)', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('productId3', pm.response.json().id);
+      });

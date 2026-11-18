@@ -1,0 +1,15 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/products/{{tempProductId}}'
+order: 16000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Xóa sản phẩm chưa có giao dịch thành công (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().message).to.be.a('string');
+      });

@@ -1,0 +1,31 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/categories'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "categoryName": "{{categoryName}}"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Tên danh mục phải duy nhất nên gắn timestamp
+      pm.collectionVariables.set('categoryName', 'Danh mục test ' + Date.now());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo danh mục thành công (201)', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.expect(res.categoryName).to.eql(pm.collectionVariables.get('categoryName'));
+        pm.expect(res.status).to.eql('ACTIVE');
+        pm.collectionVariables.set('categoryId', res.id);
+      });

@@ -1,0 +1,38 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/vouchers'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "code": "{{voucherCode}}",
+      "discountValue": 20000,
+      "conditions": "Áp dụng cho mọi đơn hàng",
+      "validFrom": "{{voucherValidFrom}}",
+      "validTo": "{{voucherValidTo}}"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Mã duy nhất, hiệu lực từ hôm qua đến 7 ngày sau
+      pm.collectionVariables.set('voucherCode', 'SALE' + Date.now());
+      pm.collectionVariables.set('voucherValidFrom', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      pm.collectionVariables.set('voucherValidTo', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo voucher thành công (201)', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.expect(res.status).to.eql('ACTIVE');
+        pm.expect(Number(res.discountValue)).to.eql(20000);
+        pm.collectionVariables.set('voucherId', res.id);
+        pm.collectionVariables.set('voucherDiscount', '20000');
+      });

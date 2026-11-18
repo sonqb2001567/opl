@@ -1,0 +1,4 @@
+$kind: collection
+name: 02 Users (Admin)
+description: Admin tạo tài khoản nhân viên, khóa/mở khóa, phân quyền
+order: 2000

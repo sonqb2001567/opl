@@ -1,0 +1,4 @@
+$kind: collection
+name: 04 Products (Product Staff)
+description: Quản lý sản phẩm - thêm, sửa, ngừng kinh doanh, bán lại, xóa, ảnh sản phẩm
+order: 4000

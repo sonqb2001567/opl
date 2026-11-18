@@ -1,0 +1,25 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/users'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+queryParams:
+  - key: role
+    value: PRODUCT_STAFF
+    disabled: true
+  - key: status
+    value: ACTIVE
+    disabled: true
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Danh sách người dùng (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res).to.be.an('array');
+        // Không user nào bị lộ password
+        res.forEach((u) => pm.expect(u.password).to.be.undefined);
+      });

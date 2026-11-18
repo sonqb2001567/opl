@@ -1,0 +1,33 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Quần jean test",
+      "skuCode": "{{productSku2}}",
+      "price": 80000,
+      "categoryId": {{categoryId}},
+      "description": "Sản phẩm thứ 2, nhập kho ít để test báo cáo sắp hết hàng"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('productSku2', 'SKU2-' + Date.now());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo sản phẩm 2 thành công (201)', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.collectionVariables.set('productId2', res.id);
+        pm.collectionVariables.set('product2Price', String(Number(res.price)));
+      });

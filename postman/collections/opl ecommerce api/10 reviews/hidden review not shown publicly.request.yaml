@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reviews/product/{{productId}}'
+order: 11000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Đánh giá bị ẩn không hiện công khai (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.reviewCount).to.eql(0);
+        pm.expect(res.reviews.length).to.eql(0);
+      });

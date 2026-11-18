@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/auth/me'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Xem profile thành công (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.email).to.eql(pm.collectionVariables.get('customerEmail'));
+        pm.expect(res.password).to.be.undefined;
+      });

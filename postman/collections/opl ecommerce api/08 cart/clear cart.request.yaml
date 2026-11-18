@@ -1,0 +1,15 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/cart'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Xóa toàn bộ giỏ hàng (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().message).to.be.a('string');
+      });

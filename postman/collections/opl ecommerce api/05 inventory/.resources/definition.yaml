@@ -1,0 +1,4 @@
+$kind: collection
+name: 05 Inventory (Inventory Staff)
+description: Nhập kho, xuất kho, điều chỉnh tồn kho, lịch sử kho
+order: 5000

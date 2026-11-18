@@ -1,0 +1,28 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reports/revenue'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Đơn ở folder 09 đã DELIVERED nên doanh thu phải có dữ liệu
+      pm.test('Báo cáo doanh thu theo ngày (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.groupBy).to.eql('day');
+        pm.expect(res.totalOrders).to.be.at.least(1);
+        pm.expect(res.totalRevenue).to.be.above(0);
+        pm.expect(res.chart).to.be.an('array');
+        pm.expect(res.chart.length).to.be.at.least(1);
+        // Doanh thu phải gồm ít nhất tổng tiền của đơn vừa giao
+        const orderTotal =
+          2 * Number(pm.collectionVariables.get('productPrice')) +
+          1 * Number(pm.collectionVariables.get('product2Price')) -
+          Number(pm.collectionVariables.get('voucherDiscount')) +
+          Number(pm.collectionVariables.get('shippingFee'));
+        pm.expect(res.totalRevenue).to.be.at.least(orderTotal);
+      });

@@ -1,0 +1,20 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/cart'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Xem giỏ hàng, tạm tính đúng (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.items.length).to.eql(2);
+        const expected =
+          2 * Number(pm.collectionVariables.get('productPrice')) +
+          1 * Number(pm.collectionVariables.get('product2Price'));
+        pm.expect(res.subtotal).to.eql(expected);
+      });

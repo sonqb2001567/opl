@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products/{{productId}}/image'
+order: 14000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+body:
+  type: formdata
+  content:
+    - key: file
+      type: file
+      src: 'postman/fixtures/test-image.png'
+      contentType: image/png
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Upload ảnh sản phẩm thành công (201)', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.expect(res.imageUrl).to.be.a('string');
+        pm.expect(res.imageUrl.startsWith('/uploads/')).to.be.true;
+      });

@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/vouchers'
+order: 3000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "code": "BADDATE{{$timestamp}}",
+      "discountValue": 5000,
+      "validFrom": "{{voucherValidTo}}",
+      "validTo": "{{voucherValidFrom}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Ngày kết thúc trước ngày bắt đầu phải bị từ chối (400)', () => {
+        pm.response.to.have.status(400);
+      });

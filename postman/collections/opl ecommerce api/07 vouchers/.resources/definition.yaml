@@ -1,0 +1,4 @@
+$kind: collection
+name: 07 Vouchers (Admin)
+description: Admin tạo/sửa/kích hoạt mã giảm giá, khách kiểm tra mã
+order: 7000

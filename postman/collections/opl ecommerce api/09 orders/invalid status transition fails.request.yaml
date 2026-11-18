@@ -1,0 +1,22 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/orders/{{orderId}}/status'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "status": "DELIVERED"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Không được nhảy cóc PENDING -> DELIVERED (400)', () => {
+        pm.response.to.have.status(400);
+      });

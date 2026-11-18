@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Sản phẩm của hacker",
+      "skuCode": "SKU-HACK-1",
+      "price": 1,
+      "categoryId": {{categoryId}}
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Khách hàng không được tạo sản phẩm (403)', () => {
+        pm.response.to.have.status(403);
+      });

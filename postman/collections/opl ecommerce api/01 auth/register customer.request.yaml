@@ -1,0 +1,35 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/auth/register'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "fullName": "Khách Hàng Test",
+      "email": "{{customerEmail}}",
+      "password": "{{userPassword}}",
+      "phoneNumber": "0901234567",
+      "address": "123 Đường Test, Quận 1, TP.HCM"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Mỗi lần chạy tạo email mới để không bị trùng
+      pm.collectionVariables.set('customerEmail', 'customer_' + Date.now() + '@test.com');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Đăng ký thành công (201)', () => {
+        pm.response.to.have.status(201);
+      });
+      pm.test('Response không chứa password', () => {
+        const res = pm.response.json();
+        pm.expect(res.password).to.be.undefined;
+        pm.expect(res.email).to.eql(pm.collectionVariables.get('customerEmail'));
+        pm.expect(res.role).to.eql('CUSTOMER');
+      });

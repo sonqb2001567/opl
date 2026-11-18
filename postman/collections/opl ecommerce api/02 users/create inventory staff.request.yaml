@@ -1,0 +1,32 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/users'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "fullName": "Nhân Viên Kho",
+      "email": "{{inventoryStaffEmail}}",
+      "password": "{{userPassword}}",
+      "role": "INVENTORY_STAFF"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('inventoryStaffEmail', 'inventory_staff_' + Date.now() + '@test.com');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo Inventory Staff thành công', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.expect(res.role).to.eql('INVENTORY_STAFF');
+        pm.collectionVariables.set('inventoryStaffId', res.id);
+      });

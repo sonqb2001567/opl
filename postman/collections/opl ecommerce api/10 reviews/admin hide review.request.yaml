@@ -1,0 +1,15 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/reviews/{{reviewId}}/hide'
+order: 10000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Admin ẩn đánh giá vi phạm (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().status).to.eql('HIDDEN');
+      });

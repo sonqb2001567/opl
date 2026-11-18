@@ -1,0 +1,28 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/reviews'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": {{productId}},
+      "rating": 5,
+      "comment": "Sản phẩm rất tốt, giao hàng nhanh"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Đơn chứa sản phẩm 1 đã DELIVERED ở folder 09 nên được phép đánh giá
+      pm.test('Đánh giá sản phẩm đã mua thành công (201)', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.expect(res.rating).to.eql(5);
+        pm.collectionVariables.set('reviewId', res.id);
+      });

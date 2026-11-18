@@ -1,0 +1,29 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/inventory/adjust'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": {{productId}},
+      "actualQuantity": 75,
+      "reason": "Kiểm kê phát hiện thiếu 5 sản phẩm"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Điều chỉnh tồn kho thành công (201)', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.expect(res.currentStock).to.eql(75);
+        // Chênh lệch 75 - 80 = -5
+        pm.expect(res.transaction.quantity).to.eql(-5);
+        pm.expect(res.transaction.transactionType).to.eql('ADJUSTMENT');
+      });

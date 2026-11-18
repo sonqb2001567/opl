@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/inventory/export'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": {{productId}},
+      "quantity": 99999,
+      "reason": "Xuất quá số tồn"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Xuất quá tồn kho phải bị từ chối (400)', () => {
+        pm.response.to.have.status(400);
+      });

@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/users'
+order: 3000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "fullName": "Hacker",
+      "email": "hacker@test.com",
+      "password": "123456",
+      "role": "PRODUCT_STAFF"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Khách hàng không được tạo nhân viên (403)', () => {
+        pm.response.to.have.status(403);
+      });

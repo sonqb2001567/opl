@@ -1,0 +1,31 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Sản phẩm tạm",
+      "skuCode": "{{tempProductSku}}",
+      "price": 10000,
+      "categoryId": {{categoryId}},
+      "description": "Dùng test ngừng kinh doanh / bán lại / xóa"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('tempProductSku', 'SKU-TMP-' + Date.now());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo sản phẩm tạm thành công (201)', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('tempProductId', pm.response.json().id);
+      });

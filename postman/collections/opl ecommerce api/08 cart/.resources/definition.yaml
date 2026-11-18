@@ -1,0 +1,4 @@
+$kind: collection
+name: 08 Cart (Customer)
+description: Giỏ hàng của khách - thêm, sửa số lượng, xóa, chuẩn bị cho đặt hàng
+order: 8000

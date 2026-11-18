@@ -1,0 +1,14 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/reviews/{{reviewId}}/hide'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Khách không được ẩn đánh giá (403)', () => {
+        pm.response.to.have.status(403);
+      });

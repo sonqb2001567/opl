@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/products?search=Áo thun test'
+order: 9000
+queryParams:
+  - key: search
+    value: Áo thun test
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tìm kiếm sản phẩm theo tên (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.items.length).to.be.at.least(1);
+        res.items.forEach((p) => pm.expect(p.productName).to.include('Áo thun'));
+      });

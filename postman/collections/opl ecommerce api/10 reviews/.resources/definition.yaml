@@ -1,0 +1,4 @@
+$kind: collection
+name: 10 Reviews
+description: Khách đánh giá sản phẩm đã mua, admin kiểm duyệt ẩn/khôi phục
+order: 10000

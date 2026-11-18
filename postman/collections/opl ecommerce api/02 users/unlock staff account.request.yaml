@@ -1,0 +1,14 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/users/{{productStaffId}}/unlock'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Mở khóa tài khoản thành công', () => {
+        pm.response.to.have.status(200);
+      });

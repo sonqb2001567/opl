@@ -1,0 +1,19 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reports/revenue?from=2026-12-31&to=2026-01-01'
+order: 3000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+queryParams:
+  - key: from
+    value: '2026-12-31'
+  - key: to
+    value: '2026-01-01'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Khoảng thời gian ngược phải bị từ chối (400)', () => {
+        pm.response.to.have.status(400);
+      });

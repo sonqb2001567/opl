@@ -1,0 +1,19 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/inventory/stock'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Xem tồn kho tất cả sản phẩm (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res).to.be.an('array');
+        const p1 = res.find((p) => p.id === Number(pm.collectionVariables.get('productId')));
+        pm.expect(p1).to.not.be.undefined;
+        pm.expect(p1.stock).to.eql(100);
+      });

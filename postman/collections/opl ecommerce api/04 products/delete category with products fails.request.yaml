@@ -1,0 +1,14 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/categories/{{categoryId}}'
+order: 17000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Danh mục còn sản phẩm không được xóa (400)', () => {
+        pm.response.to.have.status(400);
+      });

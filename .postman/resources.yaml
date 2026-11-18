@@ -1,0 +1,6 @@
+cloudResources:
+  collections:
+    ../postman/collections/opl ecommerce api: 25057644-7e76f692-8316-4350-a243-223fe73152d0
+workspace:
+  id: 6a479557-be08-4ba7-8c38-8dd12bb9fd6a
+  name: My Workspace

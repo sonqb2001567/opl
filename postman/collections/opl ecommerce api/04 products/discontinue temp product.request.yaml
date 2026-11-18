@@ -1,0 +1,15 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/products/{{tempProductId}}/discontinue'
+order: 12000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Ngừng kinh doanh sản phẩm (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().status).to.eql('DISCONTINUED');
+      });

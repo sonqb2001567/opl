@@ -1,0 +1,24 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/reviews/{{reviewId}}'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "rating": 4,
+      "comment": "Dùng 1 tuần thấy hơi xù lông, trừ 1 sao"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Chỉnh sửa đánh giá của mình (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().rating).to.eql(4);
+      });

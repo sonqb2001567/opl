@@ -1,0 +1,15 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/products/{{tempProductId}}/resume'
+order: 13000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Bán lại sản phẩm (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().status).to.eql('ON_SALE');
+      });

@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/cart'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Nhân viên không được dùng giỏ hàng (403)', () => {
+        pm.response.to.have.status(403);
+      });

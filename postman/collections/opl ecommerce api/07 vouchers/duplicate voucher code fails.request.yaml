@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/vouchers'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "code": "{{voucherCode}}",
+      "discountValue": 5000,
+      "validFrom": "{{voucherValidFrom}}",
+      "validTo": "{{voucherValidTo}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Mã giảm giá trùng phải bị từ chối (400)', () => {
+        pm.response.to.have.status(400);
+      });

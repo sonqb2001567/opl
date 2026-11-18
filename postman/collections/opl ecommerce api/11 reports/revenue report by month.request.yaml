@@ -1,0 +1,22 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reports/revenue?groupBy=month'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+queryParams:
+  - key: groupBy
+    value: month
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Báo cáo doanh thu theo tháng (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.groupBy).to.eql('month');
+        pm.expect(res.chart.length).to.be.at.least(1);
+        // Nhãn thời gian dạng YYYY-MM
+        res.chart.forEach((row) => pm.expect(row.date).to.match(/^\d{4}-\d{2}$/));
+      });

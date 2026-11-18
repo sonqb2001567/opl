@@ -1,0 +1,12 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/settings/shipping-fee'
+order: 1000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Ai cũng xem được phí vận chuyển (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().shippingFee).to.be.a('number');
+      });

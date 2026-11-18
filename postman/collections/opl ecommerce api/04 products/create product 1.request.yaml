@@ -1,0 +1,37 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Áo thun test",
+      "skuCode": "{{productSku1}}",
+      "price": 150000,
+      "categoryId": {{categoryId}},
+      "description": "Sản phẩm chính dùng cho flow đặt hàng"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // SKU phải duy nhất nên gắn timestamp
+      pm.collectionVariables.set('productSku1', 'SKU1-' + Date.now());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo sản phẩm 1 thành công (201)', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.expect(res.status).to.eql('ON_SALE');
+        pm.expect(Number(res.price)).to.eql(150000);
+        pm.expect(res.category.id).to.eql(Number(pm.collectionVariables.get('categoryId')));
+        pm.collectionVariables.set('productId', res.id);
+        pm.collectionVariables.set('productPrice', String(Number(res.price)));
+      });

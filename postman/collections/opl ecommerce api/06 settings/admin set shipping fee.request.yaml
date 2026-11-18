@@ -1,0 +1,25 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/settings/shipping-fee'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "shippingFee": 30000
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Admin cấu hình phí ship thành công (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().shippingFee).to.eql(30000);
+        // Folder orders dùng giá trị này để tính tổng tiền
+        pm.collectionVariables.set('shippingFee', '30000');
+      });

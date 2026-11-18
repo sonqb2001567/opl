@@ -1,0 +1,23 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/vouchers/{{voucherId}}'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "conditions": "Điều kiện đã được cập nhật"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Sửa voucher thành công (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().conditions).to.eql('Điều kiện đã được cập nhật');
+      });

@@ -1,0 +1,4 @@
+$kind: collection
+name: 03 Categories (Product Staff)
+description: Quản lý danh mục sản phẩm - thêm, sửa, ngừng sử dụng, xóa
+order: 3000

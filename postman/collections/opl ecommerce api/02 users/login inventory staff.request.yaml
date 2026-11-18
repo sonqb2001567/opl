@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/auth/login'
+order: 5000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "{{inventoryStaffEmail}}",
+      "password": "{{userPassword}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Inventory Staff đăng nhập thành công', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        pm.collectionVariables.set('inventoryStaffToken', res.accessToken);
+      });

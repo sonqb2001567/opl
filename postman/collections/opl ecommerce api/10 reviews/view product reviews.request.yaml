@@ -1,0 +1,15 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reviews/product/{{productId}}'
+order: 7000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Ai cũng xem được đánh giá sản phẩm (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.reviewCount).to.eql(1);
+        pm.expect(res.averageRating).to.eql(4);
+        pm.expect(res.reviews[0].customer.fullName).to.be.a('string');
+      });

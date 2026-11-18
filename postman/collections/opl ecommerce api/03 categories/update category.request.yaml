@@ -1,0 +1,24 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/categories/{{categoryId}}'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "categoryName": "{{categoryName}} (đã sửa)"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Sửa tên danh mục thành công (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.categoryName).to.eql(pm.collectionVariables.get('categoryName') + ' (đã sửa)');
+      });

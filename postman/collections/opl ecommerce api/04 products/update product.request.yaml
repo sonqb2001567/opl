@@ -1,0 +1,28 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/products/{{productId}}'
+order: 11000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "price": 120000,
+      "description": "Mô tả đã được chỉnh sửa"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Sửa sản phẩm thành công (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(Number(res.price)).to.eql(120000);
+        pm.expect(res.description).to.eql('Mô tả đã được chỉnh sửa');
+        // Các folder sau tính tiền dựa trên giá mới
+        pm.collectionVariables.set('productPrice', String(Number(res.price)));
+      });

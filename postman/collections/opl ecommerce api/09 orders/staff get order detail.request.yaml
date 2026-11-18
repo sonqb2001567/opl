@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/orders/{{orderId}}'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Nhân viên kho xem chi tiết đơn kèm thông tin khách (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.customer).to.be.an('object');
+        pm.expect(res.customer.email).to.eql(pm.collectionVariables.get('customerEmail'));
+      });

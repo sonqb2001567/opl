@@ -1,0 +1,23 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/products?page=1&limit=10'
+order: 8000
+queryParams:
+  - key: page
+    value: '1'
+  - key: limit
+    value: '10'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Danh sách sản phẩm có phân trang (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.items).to.be.an('array');
+        pm.expect(res.total).to.be.a('number');
+        pm.expect(res.page).to.eql(1);
+        pm.expect(res.limit).to.eql(10);
+        // Mặc định chỉ hiện sản phẩm đang bán
+        res.items.forEach((p) => pm.expect(p.status).to.eql('ON_SALE'));
+      });

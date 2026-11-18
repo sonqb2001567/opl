@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/inventory/import'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": {{productId2}},
+      "quantity": 6,
+      "reason": "Nhập ít để test báo cáo sắp hết hàng"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Nhập kho sản phẩm 2 thành công (201)', () => {
+        pm.response.to.have.status(201);
+        pm.expect(pm.response.json().currentStock).to.eql(6);
+      });

@@ -1,0 +1,20 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reviews?productId={{productId}}'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+queryParams:
+  - key: productId
+    value: '{{productId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Admin xem danh sách đánh giá (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res).to.be.an('array');
+        pm.expect(res.map((r) => r.id)).to.include(Number(pm.collectionVariables.get('reviewId')));
+      });

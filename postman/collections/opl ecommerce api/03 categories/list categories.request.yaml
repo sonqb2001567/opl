@@ -1,0 +1,15 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/categories'
+order: 5000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Ai cũng xem được danh sách danh mục (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res).to.be.an('array');
+        const ids = res.map((c) => c.id);
+        pm.expect(ids).to.include(Number(pm.collectionVariables.get('categoryId')));
+      });

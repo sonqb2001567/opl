@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/reviews'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": {{productId}},
+      "rating": 1,
+      "comment": "Đánh giá lần 2"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Mỗi khách chỉ đánh giá 1 lần / sản phẩm (400)', () => {
+        pm.response.to.have.status(400);
+      });

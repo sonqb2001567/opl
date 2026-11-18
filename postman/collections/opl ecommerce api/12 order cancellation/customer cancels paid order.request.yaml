@@ -1,0 +1,26 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/orders/{{orderId2}}/cancel'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "reason": "Đặt nhầm, muốn hủy đơn"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Khách hủy đơn PENDING thành công, đơn đã trả tiền chuyển sang hoàn tiền (201)', () => {
+        pm.response.to.have.status(201);
+        const order = pm.response.json().order;
+        pm.expect(order.status).to.eql('CANCELLED');
+        pm.expect(order.paymentStatus).to.eql('REFUNDED');
+        pm.expect(order.cancelReason).to.eql('Đặt nhầm, muốn hủy đơn');
+      });

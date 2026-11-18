@@ -1,0 +1,15 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/cart/items/{{cartItemP2Id}}'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Xóa 1 sản phẩm khỏi giỏ (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().items.length).to.eql(1);
+      });

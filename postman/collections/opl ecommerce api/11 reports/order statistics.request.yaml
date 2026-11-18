@@ -1,0 +1,19 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reports/orders'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Thống kê đơn hàng theo trạng thái (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.byStatus).to.be.an('object');
+        pm.expect(res.byStatus.DELIVERED).to.be.at.least(1);
+        const sum = Object.values(res.byStatus).reduce((a, b) => a + b, 0);
+        pm.expect(res.total).to.eql(sum);
+      });

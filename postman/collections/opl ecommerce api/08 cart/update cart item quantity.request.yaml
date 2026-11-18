@@ -1,0 +1,25 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/cart/items/{{cartItemP1Id}}'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "quantity": 2
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Đổi số lượng sản phẩm trong giỏ (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        const item = res.items.find((i) => i.product.id === Number(pm.collectionVariables.get('productId')));
+        pm.expect(item.quantity).to.eql(2);
+      });

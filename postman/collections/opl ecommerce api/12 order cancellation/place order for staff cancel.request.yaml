@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/orders'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "shippingAddress": "789 Đường Hủy, Quận 5, TP.HCM",
+      "paymentMethod": "COD"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Đặt đơn COD cho kịch bản kho hủy đơn (201)', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('orderId3', pm.response.json().order.id);
+      });

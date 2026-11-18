@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/inventory/adjust'
+order: 10000
+headers:
+  - key: Authorization
+    value: 'Bearer {{inventoryStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": {{productId}},
+      "actualQuantity": 75,
+      "reason": "Điều chỉnh không có chênh lệch"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Số lượng không đổi thì không cần điều chỉnh (400)', () => {
+        pm.response.to.have.status(400);
+      });

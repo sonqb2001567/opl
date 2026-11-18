@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/orders'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "shippingAddress": "123 Đường Test, Quận 1, TP.HCM",
+      "paymentMethod": "COD"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Giỏ đã bị xóa sau khi đặt đơn trước đó
+      pm.test('Giỏ hàng trống không đặt được đơn (400)', () => {
+        pm.response.to.have.status(400);
+      });

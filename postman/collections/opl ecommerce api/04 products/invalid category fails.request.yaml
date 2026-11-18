@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Sản phẩm danh mục ảo",
+      "skuCode": "SKU-GHOST-1",
+      "price": 99000,
+      "categoryId": 999999
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Danh mục không tồn tại phải bị từ chối (400)', () => {
+        pm.response.to.have.status(400);
+      });

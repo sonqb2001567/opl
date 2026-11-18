@@ -1,0 +1,15 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/products/{{productId}}/image'
+order: 15000
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Xóa ảnh sản phẩm thành công (200)', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().imageUrl).to.be.null;
+      });

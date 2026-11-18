@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/orders/my/{{orderId}}'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{customerToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Khách theo dõi chi tiết đơn của mình (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        pm.expect(res.id).to.eql(Number(pm.collectionVariables.get('orderId')));
+        pm.expect(res.orderDetails.length).to.eql(2);
+      });
