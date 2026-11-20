@@ -68,6 +68,13 @@ JWT_SECRET="doi_thanh_chuoi_random_dai"
 PORT=3000
 ```
 
+Hai biến tuỳ chọn cho trang tài liệu API (xem mục 5), bỏ trống cũng được:
+
+```ini
+SWAGGER_PATH=docs        # đường dẫn trang tài liệu, mặc định "docs"
+SWAGGER_ENABLED=true     # đặt "false" để tắt trang tài liệu (nên tắt ở production)
+```
+
 `.env` nằm trong `.gitignore` — mỗi người tự tạo file này trên máy mình, không commit.
 
 ### Bước 4 — Sinh Prisma Client
@@ -91,6 +98,8 @@ Server chạy tại **http://localhost:3000**. Kiểm tra:
 ```bash
 curl http://localhost:3000
 ```
+
+Mở **http://localhost:3000/docs** để xem trang tài liệu API (Swagger UI) — xem mục 5.
 
 ---
 
@@ -168,7 +177,111 @@ Bộ test API nằm ở `postman/collections/opl ecommerce api/`. Cần cài Pos
 
 ---
 
-## 5. Danh sách API
+## 5. Tài liệu API cho frontend (Swagger UI)
+
+Chạy server rồi mở **http://localhost:3000/docs**. Trang này liệt kê toàn bộ **65
+endpoint**, kèm schema request/response, ví dụ dữ liệu, mã lỗi, và **gọi thử API
+được ngay trên trình duyệt** — không cần Postman.
+
+| Đường dẫn | Dùng để làm gì |
+|---|---|
+| `/docs` | Trang Swagger UI (giao diện đọc + gọi thử API) |
+| `/docs-json` | File OpenAPI 3 dạng JSON — dùng để sinh code client |
+| `/docs-yaml` | File OpenAPI 3 dạng YAML |
+
+> Đổi `/docs` thành đường dẫn khác bằng biến `SWAGGER_PATH`, tắt hẳn bằng
+> `SWAGGER_ENABLED=false` (xem bước 3 mục 2).
+
+### Cách gọi thử API có đăng nhập
+
+Trên Swagger UI, endpoint nào có **ổ khóa 🔒** là cần token. 56/65 endpoint cần token,
+9 endpoint còn lại gọi được luôn.
+
+1. Mở nhóm **Auth**, chọn `POST /auth/login` → **Try it out**.
+2. Sửa body thành tài khoản của bạn (mặc định có sẵn `admin@test.com` / `admin123`)
+   rồi bấm **Execute**.
+3. Copy giá trị `accessToken` trong phần Response body.
+4. Bấm nút **Authorize** ở góc trên bên phải trang → dán token vào → **Authorize** →
+   **Close**. *Chỉ dán token, không ghi thêm chữ `Bearer`.*
+5. Từ giờ mọi request đều tự gửi kèm `Authorization: Bearer <token>`.
+
+Token được nhớ cả khi F5 lại trang (`persistAuthorization`), nên không phải
+Authorize lại mỗi lần. Token hết hạn sau 1 ngày → login lại rồi Authorize lại.
+
+> Nhớ mục 3: role `ADMIN` **không** phải superuser. Token admin sẽ nhận `403` ở các
+> endpoint của `PRODUCT_STAFF` / `INVENTORY_STAFF`. Muốn thử hết thì tạo nhân viên
+> qua `POST /users` rồi login bằng tài khoản đó để lấy token tương ứng.
+
+### Mẹo dùng trang tài liệu
+
+- **Ô Search** ở đầu trang: lọc nhanh theo tag, ví dụ gõ `Cart`.
+- Các nhóm mặc định được **thu gọn**, bấm vào tên nhóm để mở.
+- Mỗi endpoint có mục **Schema** cạnh **Example Value** — xem đầy đủ kiểu dữ liệu,
+  field bắt buộc, giá trị enum, min/max.
+- Tiêu đề endpoint có tiền tố `[Customer]` / `[Staff]` / `[Admin]` để biết role nào gọi.
+- Trang hiển thị cả **thời gian phản hồi** của mỗi request đã gọi thử.
+- Upload ảnh sản phẩm (`POST /products/{id}/image`): Swagger UI hiện sẵn nút **Choose
+  File**, chọn ảnh rồi Execute. Response trả về `imageUrl`, frontend ghép thành
+  `http://localhost:3000<imageUrl>` để hiển thị.
+
+### Sinh code client từ spec
+
+File `/docs-json` là OpenAPI 3 chuẩn, dùng được với mọi generator:
+
+```bash
+# Lưu spec ra file
+curl http://localhost:3000/docs-json -o openapi.json
+
+# Ví dụ: sinh client TypeScript + Axios
+npx @openapitools/openapi-generator-cli generate \
+  -i openapi.json -g typescript-axios -o ./src/api-client
+```
+
+Hoặc import thẳng URL `http://localhost:3000/docs-json` vào Postman / Insomnia /
+Hoppscotch để có sẵn toàn bộ request.
+
+### Thêm tài liệu cho endpoint mới
+
+Khi viết endpoint mới, thêm các decorator sau để nó hiện đẹp trên `/docs`:
+
+```ts
+@ApiTags(ApiTag.Products)                  // nhóm endpoint, hằng số ở src/swagger.ts
+export class ProductsController {
+
+  @ApiOperation({ summary: 'Mô tả ngắn 1 dòng' })
+  @ApiQuery({ name: 'search', required: false, example: 'iphone' })
+  @ApiAuth('PRODUCT_STAFF')                // gắn ổ khóa 🔒 + khai báo lỗi 401/403
+  @Get()
+  findAll() { /* ... */ }
+}
+```
+
+Trong DTO thì dùng `@ApiProperty` / `@ApiPropertyOptional` để có ví dụ dữ liệu:
+
+```ts
+export class CreateProductDto {
+  @ApiProperty({ example: 'iPhone 15 Pro 256GB', maxLength: 255 })
+  @IsNotEmpty()
+  productName: string;
+}
+```
+
+Các file liên quan:
+
+| File | Nội dung |
+|---|---|
+| `src/swagger.ts` | Cấu hình `DocumentBuilder`, danh sách tag, phần mô tả đầu trang |
+| `src/common/decorators/api-auth.decorator.ts` | `@ApiAuth(...roles)` — gộp `@ApiBearerAuth` + lỗi 401/403 |
+| `src/main.ts` | Gọi `setupSwagger(app)` khi bootstrap |
+
+> Lưu ý: DTO kế thừa phải dùng `PartialType` của **`@nestjs/swagger`** (không phải
+> `@nestjs/mapped-types`), nếu không các field sẽ biến mất khỏi tài liệu.
+
+---
+
+## 6. Danh sách API
+
+Bảng dưới để tra nhanh. Chi tiết request/response thì xem `/docs` ở mục 5.
 
 Không có global prefix — route nằm ngay ở gốc. "Công khai" = không cần token.
 
@@ -297,7 +410,7 @@ Phí vận chuyển lưu trong bộ nhớ (`src/settings/settings.service.ts`), 
 
 ---
 
-## 6. Cấu trúc project
+## 7. Cấu trúc project
 
 ```
 ecommerce-webapp/
@@ -307,11 +420,12 @@ ecommerce-webapp/
 │   ├── seed-admin.sql           # Chỉ seed admin (DB đã có sẵn bảng)
 │   └── migrations/              # Migration history của Prisma
 ├── src/
-│   ├── main.ts                  # Bootstrap, ValidationPipe, CORS, static /uploads
+│   ├── main.ts                  # Bootstrap, ValidationPipe, CORS, static /uploads, Swagger
+│   ├── swagger.ts               # Cấu hình trang tài liệu API /docs
 │   ├── app.module.ts
 │   ├── prisma/                  # PrismaService (driver adapter MariaDB)
 │   ├── auth/                    # Đăng ký, đăng nhập, JWT strategy
-│   ├── common/                  # JwtAuthGuard, RolesGuard, decorators
+│   ├── common/                  # JwtAuthGuard, RolesGuard, decorators (@ApiAuth)
 │   ├── users/ categories/ products/ inventory/
 │   ├── cart/ orders/ reviews/ vouchers/
 │   └── settings/ reports/
@@ -322,7 +436,7 @@ ecommerce-webapp/
 
 ---
 
-## 7. Sửa lỗi thường gặp
+## 8. Sửa lỗi thường gặp
 
 **`Cannot find module './generated/prisma/client.js'`**
 Chưa chạy `npx prisma generate` (bước 4).
@@ -358,3 +472,10 @@ npx prisma migrate resolve --applied 20261031174921_init
 
 **Muốn làm lại database từ đầu**
 Chạy lại `prisma/database-setup.sql` — script tự xoá bảng cũ rồi tạo lại.
+
+**`/docs` trả về 404**
+Biến `SWAGGER_ENABLED` đang là `false` trong `.env`, hoặc `SWAGGER_PATH` đã được đổi
+sang đường dẫn khác. Khi server start, log in ra đúng URL của trang tài liệu.
+
+**Gọi thử trên `/docs` bị `401` dù đã Authorize**
+Token hết hạn (hạn 1 ngày) → login lại, bấm **Authorize** → **Logout** → dán token mới.

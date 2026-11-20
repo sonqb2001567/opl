@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { existsSync, mkdirSync } from 'fs';
 import { AppModule } from './app.module.js';
+import { SWAGGER_PATH, setupSwagger } from './swagger.js';
 
 async function bootstrap() {
   // Tạo thư mục chứa ảnh upload nếu chưa có
@@ -25,7 +26,17 @@ async function bootstrap() {
   // Cho phép truy cập ảnh sản phẩm qua đường dẫn /uploads/...
   app.useStaticAssets('uploads', { prefix: '/uploads/' });
 
-  await app.listen(process.env.PORT ?? 3000);
-  console.log(`Server đang chạy tại http://localhost:${process.env.PORT ?? 3000}`);
+  // Trang tài liệu API cho frontend (tắt được bằng SWAGGER_ENABLED=false)
+  const swaggerEnabled = process.env.SWAGGER_ENABLED !== 'false';
+  if (swaggerEnabled) {
+    setupSwagger(app);
+  }
+
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+  console.log(`Server đang chạy tại http://localhost:${port}`);
+  if (swaggerEnabled) {
+    console.log(`Tài liệu API: http://localhost:${port}/${SWAGGER_PATH}`);
+  }
 }
 await bootstrap();
