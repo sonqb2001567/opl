@@ -54,11 +54,19 @@ Endpoint không có ổ khóa là API công khai, gọi được mà không cầ
 `;
 
 export function setupSwagger(app: INestApplication): void {
-  const config = new DocumentBuilder()
+  const builder = new DocumentBuilder()
     .setTitle('OPL Ecommerce API')
     .setDescription(DESCRIPTION)
-    .setVersion('1.0')
-    .addServer(`http://localhost:${process.env.PORT ?? 3000}`, 'Local')
+    .setVersion('1.0');
+
+  // Không khai báo server nào thì Swagger UI gọi API theo đúng origin của trang
+  // đang mở, nên chạy ở localhost hay qua Cloudflare Tunnel đều đúng.
+  // Chỉ đặt PUBLIC_URL khi cần ghim cứng một địa chỉ (domain riêng, reverse proxy).
+  if (process.env.PUBLIC_URL) {
+    builder.addServer(process.env.PUBLIC_URL, 'Public');
+  }
+
+  const config = builder
     .addBearerAuth(
       {
         type: 'http',

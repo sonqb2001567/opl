@@ -30,7 +30,10 @@ export class ProductsService {
     const where: any = {};
 
     if (query.search) {
-      where.productName = { contains: query.search };
+      // mode: 'insensitive' là bắt buộc trên Postgres - khác MySQL (collation
+      // utf8mb4_unicode_ci so sánh sẵn không phân biệt hoa/thường), Postgres
+      // mặc định phân biệt nên thiếu dòng này thì tìm "iphone" sẽ không ra "iPhone".
+      where.productName = { contains: query.search, mode: 'insensitive' };
     }
     if (query.categoryId) {
       where.categoryId = Number(query.categoryId);

@@ -1,0 +1,74 @@
+# =====================================================================
+# OPL Ecommerce Backend - Docker Compose (PostgreSQL)
+# =====================================================================
+# LUÔN chạy kèm --env-file .env.docker, ví dụ:
+#   docker compose --env-file .env.docker up -d --build
+# Nếu quên, compose sẽ đọc nhầm file .env dành cho máy dev (DATABASE_URL
+# trỏ localhost) và báo lỗi thiếu biến ngay, không chạy sai âm thầm.
+#
+# Database là PostgreSQL để giống môi trường Render (Render không có
+# MySQL managed). Nếu trước đây đã chạy bản MySQL thì phải xoá volume cũ
+# một lần: docker compose --env-file .env.docker down -v
+# =====================================================================
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: opl-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?thiếu POSTGRES_PASSWORD - chạy kèm --env-file .env.docker}
+      # Postgres tự tạo database này lúc khởi tạo lần đầu. Tên `opl` phải khớp
+      # với DATABASE_URL bên dưới.
+      POSTGRES_DB: opl
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      PGTZ: ${TZ:-Asia/Ho_Chi_Minh}
+    # Giờ Postgres khớp giờ VN để báo cáo doanh thu theo ngày không bị lệch
+    command: ['postgres', '-c', 'timezone=Asia/Ho_Chi_Minh']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Postgres tự chạy script này ở LẦN START ĐẦU TIÊN (khi volume còn rỗng):
+      # tạo 10 enum, 11 bảng, index, bản ghi migration và admin mặc định
+      - ./prisma/database-setup.sql:/docker-entrypoint-initdb.d/01-database-setup.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d opl']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Mở cổng ra host chỉ khi cần nối pgAdmin/DBeaver từ ngoài vào.
+    # Trên server production nên để comment để Postgres chỉ nghe trong network nội bộ.
+    # ports:
+    #   - '5432:5432'
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opl-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        # Chờ Postgres sẵn sàng, vì PrismaService gọi $connect() ngay lúc khởi động
+        condition: service_healthy
+    environment:
+      # Host là tên service `db`, KHÔNG phải localhost - app chạy trong container riêng.
+      # Trong network nội bộ của compose nên không cần sslmode (khác Render External URL).
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/opl
+      JWT_SECRET: ${JWT_SECRET:?thiếu JWT_SECRET - xem .env.docker.example}
+      PORT: 3000
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      SWAGGER_PATH: ${SWAGGER_PATH:-docs}
+      # Để trống khi chưa có domain cố định - Swagger tự lấy origin của trang.
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    volumes:
+      # Ảnh sản phẩm phải nằm ngoài container, nếu không sẽ mất mỗi lần deploy lại.
+      # LƯU Ý: trên Render free KHÔNG có volume như vậy - xem README mục 10.
+      - uploads_data:/app/uploads
+
+volumes:
+  pgdata:
+  uploads_data:

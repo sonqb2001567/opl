@@ -1,253 +1,280 @@
 -- =====================================================================
--- OPL Ecommerce Backend - Script tạo lại database MySQL
+-- OPL Ecommerce Backend - Script tạo lại database PostgreSQL
 -- =====================================================================
 --
--- Script này tạo lại TOÀN BỘ database từ đầu: 11 bảng, khoá ngoại,
--- index, bản ghi migration của Prisma và tài khoản admin mặc định.
+-- Script này tạo lại TOÀN BỘ database từ đầu: 11 bảng, 10 kiểu enum,
+-- khoá ngoại, index, bản ghi migration của Prisma và tài khoản admin
+-- mặc định.
 --
--- CẢNH BÁO: script XOÁ sạch dữ liệu cũ trong database `opl` trước khi
--- tạo lại. Đừng chạy trên database có dữ liệu cần giữ.
+-- CẢNH BÁO: script XOÁ sạch bảng cũ trong schema `public` trước khi tạo
+-- lại. Đừng chạy trên database có dữ liệu cần giữ.
+--
+-- KHÁC MySQL: Postgres không có `CREATE DATABASE IF NOT EXISTS`, nên
+-- script KHÔNG tự tạo database. Phải có database sẵn và kết nối vào nó:
+--   - Docker Compose: biến POSTGRES_DB trong .env.docker tự tạo `opl`
+--   - Render: database được tạo lúc tạo blueprint
+--   - Máy dev: `createdb opl` hoặc `CREATE DATABASE opl;` trong psql
 --
 -- ---------------------------------------------------------------------
 -- CÁCH CHẠY
 -- ---------------------------------------------------------------------
--- Cách 1 - MySQL Workbench / DBeaver:
---   Mở file này, bấm Execute (toàn bộ script).
+-- Cách 1 - Prisma (không cần cài psql, dùng DATABASE_URL trong .env):
+--   npx prisma db execute --file prisma/database-setup.sql
 --
--- Cách 2 - dòng lệnh (từ thư mục ecommerce-webapp):
---   mysql -u root -p < prisma/database-setup.sql
+-- Cách 2 - psql (từ thư mục ecommerce-webapp):
+--   psql "postgresql://postgres:matkhau@localhost:5432/opl" -f prisma/database-setup.sql
 --
---   Trên Windows nếu `mysql` chưa có trong PATH:
---   "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p < prisma/database-setup.sql
+-- Cách 3 - pgAdmin / DBeaver: mở file, Execute toàn bộ script.
 --
 -- ---------------------------------------------------------------------
 -- SAU KHI CHẠY SCRIPT
 -- ---------------------------------------------------------------------
---   1. Copy `.env.example` thành `.env`, điền user/password MySQL của bạn:
---        DATABASE_URL="mysql://root:matkhau@localhost:3306/opl"
+--   1. Copy `.env.example` thành `.env`, điền user/password Postgres:
+--        DATABASE_URL="postgresql://postgres:matkhau@localhost:5432/opl"
 --   2. npm install
 --   3. npx prisma generate        # sinh Prisma Client vào src/generated/prisma
 --   4. npm run start:dev          # server chạy tại http://localhost:3000
 --
 -- Đăng nhập admin: admin@test.com / admin123
---
--- ---------------------------------------------------------------------
--- ĐỔI TÊN DATABASE
--- ---------------------------------------------------------------------
--- Muốn dùng tên khác thì sửa `opl` ở 3 chỗ: CREATE DATABASE / USE ngay
--- dưới đây và câu SELECT kiểm tra ở cuối file; đồng thời sửa tên database
--- trong DATABASE_URL ở file .env cho khớp.
 -- =====================================================================
 
-CREATE DATABASE IF NOT EXISTS `opl`
-  DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE `opl`;
-
--- ---------------------------------------------------------------------
--- 1. Xoá các bảng cũ (nếu có), theo thứ tự ngược quan hệ khoá ngoại
--- ---------------------------------------------------------------------
-SET FOREIGN_KEY_CHECKS = 0;
-
-DROP TABLE IF EXISTS `cart_items`;
-DROP TABLE IF EXISTS `carts`;
-DROP TABLE IF EXISTS `reviews`;
-DROP TABLE IF EXISTS `order_details`;
-DROP TABLE IF EXISTS `orders`;
-DROP TABLE IF EXISTS `inventory_transactions`;
-DROP TABLE IF EXISTS `products`;
-DROP TABLE IF EXISTS `categories`;
-DROP TABLE IF EXISTS `vouchers`;
-DROP TABLE IF EXISTS `users`;
-DROP TABLE IF EXISTS `_prisma_migrations`;
-
-SET FOREIGN_KEY_CHECKS = 1;
+-- Dữ liệu có tiếng Việt, ép encoding của kết nối về UTF8 cho chắc
+-- (thay cho `SET NAMES utf8mb4` của MySQL).
+SET client_encoding = 'UTF8';
 
 -- ---------------------------------------------------------------------
--- 2. Tạo bảng
+-- 1. Xoá các bảng + kiểu enum cũ (nếu có)
 -- ---------------------------------------------------------------------
+-- CASCADE tự xoá luôn khoá ngoại trỏ tới bảng, nên không cần tắt
+-- foreign key check như `SET FOREIGN_KEY_CHECKS = 0` của MySQL.
+DROP TABLE IF EXISTS "cart_items" CASCADE;
+DROP TABLE IF EXISTS "carts" CASCADE;
+DROP TABLE IF EXISTS "reviews" CASCADE;
+DROP TABLE IF EXISTS "order_details" CASCADE;
+DROP TABLE IF EXISTS "orders" CASCADE;
+DROP TABLE IF EXISTS "inventory_transactions" CASCADE;
+DROP TABLE IF EXISTS "products" CASCADE;
+DROP TABLE IF EXISTS "categories" CASCADE;
+DROP TABLE IF EXISTS "vouchers" CASCADE;
+DROP TABLE IF EXISTS "users" CASCADE;
+DROP TABLE IF EXISTS "_prisma_migrations" CASCADE;
+
+-- Postgres lưu enum thành kiểu dữ liệu riêng, xoá bảng không xoá kiểu
+DROP TYPE IF EXISTS "UserRole";
+DROP TYPE IF EXISTS "UserStatus";
+DROP TYPE IF EXISTS "CategoryStatus";
+DROP TYPE IF EXISTS "ProductStatus";
+DROP TYPE IF EXISTS "InventoryTransactionType";
+DROP TYPE IF EXISTS "OrderStatus";
+DROP TYPE IF EXISTS "PaymentMethod";
+DROP TYPE IF EXISTS "PaymentStatus";
+DROP TYPE IF EXISTS "ReviewStatus";
+DROP TYPE IF EXISTS "VoucherStatus";
+
+-- ---------------------------------------------------------------------
+-- 2. Kiểu enum
+-- ---------------------------------------------------------------------
+CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'PRODUCT_STAFF', 'INVENTORY_STAFF', 'CUSTOMER');
+CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'LOCKED');
+CREATE TYPE "CategoryStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+CREATE TYPE "ProductStatus" AS ENUM ('ON_SALE', 'DISCONTINUED');
+CREATE TYPE "InventoryTransactionType" AS ENUM ('IMPORT', 'EXPORT', 'ADJUSTMENT');
+CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'PREPARING', 'SHIPPING', 'DELIVERED', 'CANCELLED');
+CREATE TYPE "PaymentMethod" AS ENUM ('COD', 'BANK_TRANSFER', 'E_WALLET');
+CREATE TYPE "PaymentStatus" AS ENUM ('UNPAID', 'PAID', 'FAILED', 'REFUNDED');
+CREATE TYPE "ReviewStatus" AS ENUM ('VISIBLE', 'HIDDEN');
+CREATE TYPE "VoucherStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+
+-- ---------------------------------------------------------------------
+-- 3. Tạo bảng
+-- ---------------------------------------------------------------------
+-- SERIAL thay cho AUTO_INCREMENT, TIMESTAMP(3) thay cho DATETIME(3).
 
 -- Người dùng: admin, nhân viên sản phẩm, nhân viên kho, khách hàng
-CREATE TABLE `users` (
-    `user_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `full_name` VARCHAR(100) NOT NULL,
-    `email` VARCHAR(255) NOT NULL,
-    `password` VARCHAR(255) NOT NULL,
-    `phone_number` VARCHAR(20) NULL,
-    `address` TEXT NULL,
-    `role` ENUM('ADMIN', 'PRODUCT_STAFF', 'INVENTORY_STAFF', 'CUSTOMER') NOT NULL DEFAULT 'CUSTOMER',
-    `status` ENUM('ACTIVE', 'LOCKED') NOT NULL DEFAULT 'ACTIVE',
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updated_at` DATETIME(3) NOT NULL,
+CREATE TABLE "users" (
+    "user_id" SERIAL NOT NULL,
+    "full_name" VARCHAR(100) NOT NULL,
+    "email" VARCHAR(255) NOT NULL,
+    "password" VARCHAR(255) NOT NULL,
+    "phone_number" VARCHAR(20),
+    "address" TEXT,
+    "role" "UserRole" NOT NULL DEFAULT 'CUSTOMER',
+    "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-    UNIQUE INDEX `users_email_key`(`email`),
-    PRIMARY KEY (`user_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "users_pkey" PRIMARY KEY ("user_id")
+);
 
 -- Danh mục sản phẩm
-CREATE TABLE `categories` (
-    `category_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `category_name` VARCHAR(100) NOT NULL,
-    `status` ENUM('ACTIVE', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updated_at` DATETIME(3) NOT NULL,
+CREATE TABLE "categories" (
+    "category_id" SERIAL NOT NULL,
+    "category_name" VARCHAR(100) NOT NULL,
+    "status" "CategoryStatus" NOT NULL DEFAULT 'ACTIVE',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-    UNIQUE INDEX `categories_category_name_key`(`category_name`),
-    PRIMARY KEY (`category_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "categories_pkey" PRIMARY KEY ("category_id")
+);
 
 -- Sản phẩm
-CREATE TABLE `products` (
-    `product_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `category_id` INTEGER NOT NULL,
-    `product_name` VARCHAR(255) NOT NULL,
-    `sku_code` VARCHAR(50) NOT NULL,
-    `price` DECIMAL(12, 2) NOT NULL,
-    `description` TEXT NULL,
-    `image_url` VARCHAR(500) NULL,
-    `status` ENUM('ON_SALE', 'DISCONTINUED') NOT NULL DEFAULT 'ON_SALE',
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updated_at` DATETIME(3) NOT NULL,
+CREATE TABLE "products" (
+    "product_id" SERIAL NOT NULL,
+    "category_id" INTEGER NOT NULL,
+    "product_name" VARCHAR(255) NOT NULL,
+    "sku_code" VARCHAR(50) NOT NULL,
+    "price" DECIMAL(12,2) NOT NULL,
+    "description" TEXT,
+    "image_url" VARCHAR(500),
+    "status" "ProductStatus" NOT NULL DEFAULT 'ON_SALE',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-    UNIQUE INDEX `products_sku_code_key`(`sku_code`),
-    INDEX `products_category_id_idx`(`category_id`),
-    INDEX `products_status_idx`(`status`),
-    PRIMARY KEY (`product_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "products_pkey" PRIMARY KEY ("product_id")
+);
 
 -- Phiếu nhập / xuất / điều chỉnh kho
-CREATE TABLE `inventory_transactions` (
-    `transaction_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `product_id` INTEGER NOT NULL,
-    `staff_id` INTEGER NOT NULL,
-    `transaction_type` ENUM('IMPORT', 'EXPORT', 'ADJUSTMENT') NOT NULL,
-    `quantity` INTEGER NOT NULL,
-    `reason` TEXT NULL,
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+CREATE TABLE "inventory_transactions" (
+    "transaction_id" SERIAL NOT NULL,
+    "product_id" INTEGER NOT NULL,
+    "staff_id" INTEGER NOT NULL,
+    "transaction_type" "InventoryTransactionType" NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "reason" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    INDEX `inventory_transactions_product_id_idx`(`product_id`),
-    INDEX `inventory_transactions_staff_id_idx`(`staff_id`),
-    INDEX `inventory_transactions_created_at_idx`(`created_at`),
-    PRIMARY KEY (`transaction_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "inventory_transactions_pkey" PRIMARY KEY ("transaction_id")
+);
 
 -- Đơn hàng
-CREATE TABLE `orders` (
-    `order_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `customer_id` INTEGER NOT NULL,
-    `shipping_address` TEXT NOT NULL,
-    `payment_method` ENUM('COD', 'BANK_TRANSFER', 'E_WALLET') NOT NULL,
-    `payment_status` ENUM('UNPAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'UNPAID',
-    `shipping_fee` DECIMAL(12, 2) NOT NULL DEFAULT 0,
-    `discount_amount` DECIMAL(12, 2) NOT NULL DEFAULT 0,
-    `total_amount` DECIMAL(12, 2) NOT NULL,
-    `status` ENUM('PENDING', 'PREPARING', 'SHIPPING', 'DELIVERED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
-    `cancel_reason` TEXT NULL,
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updated_at` DATETIME(3) NOT NULL,
+CREATE TABLE "orders" (
+    "order_id" SERIAL NOT NULL,
+    "customer_id" INTEGER NOT NULL,
+    "shipping_address" TEXT NOT NULL,
+    "payment_method" "PaymentMethod" NOT NULL,
+    "payment_status" "PaymentStatus" NOT NULL DEFAULT 'UNPAID',
+    "shipping_fee" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "discount_amount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "total_amount" DECIMAL(12,2) NOT NULL,
+    "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
+    "cancel_reason" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-    INDEX `orders_customer_id_idx`(`customer_id`),
-    INDEX `orders_status_idx`(`status`),
-    INDEX `orders_created_at_idx`(`created_at`),
-    PRIMARY KEY (`order_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "orders_pkey" PRIMARY KEY ("order_id")
+);
 
 -- Chi tiết đơn hàng
-CREATE TABLE `order_details` (
-    `order_detail_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `order_id` INTEGER NOT NULL,
-    `product_id` INTEGER NOT NULL,
-    `quantity` INTEGER NOT NULL,
-    `unit_price` DECIMAL(12, 2) NOT NULL,
+CREATE TABLE "order_details" (
+    "order_detail_id" SERIAL NOT NULL,
+    "order_id" INTEGER NOT NULL,
+    "product_id" INTEGER NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "unit_price" DECIMAL(12,2) NOT NULL,
 
-    INDEX `order_details_product_id_idx`(`product_id`),
-    UNIQUE INDEX `order_details_order_id_product_id_key`(`order_id`, `product_id`),
-    PRIMARY KEY (`order_detail_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "order_details_pkey" PRIMARY KEY ("order_detail_id")
+);
 
 -- Đánh giá sản phẩm
-CREATE TABLE `reviews` (
-    `review_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `customer_id` INTEGER NOT NULL,
-    `product_id` INTEGER NOT NULL,
-    `rating` SMALLINT NOT NULL,
-    `comment` TEXT NULL,
-    `status` ENUM('VISIBLE', 'HIDDEN') NOT NULL DEFAULT 'VISIBLE',
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updated_at` DATETIME(3) NOT NULL,
+CREATE TABLE "reviews" (
+    "review_id" SERIAL NOT NULL,
+    "customer_id" INTEGER NOT NULL,
+    "product_id" INTEGER NOT NULL,
+    "rating" SMALLINT NOT NULL,
+    "comment" TEXT,
+    "status" "ReviewStatus" NOT NULL DEFAULT 'VISIBLE',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-    INDEX `reviews_product_id_status_idx`(`product_id`, `status`),
-    INDEX `reviews_customer_id_idx`(`customer_id`),
-    PRIMARY KEY (`review_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "reviews_pkey" PRIMARY KEY ("review_id")
+);
 
 -- Mã giảm giá
-CREATE TABLE `vouchers` (
-    `voucher_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `code` VARCHAR(50) NOT NULL,
-    `discount_value` DECIMAL(12, 2) NOT NULL,
-    `conditions` TEXT NULL,
-    `valid_from` DATETIME(3) NOT NULL,
-    `valid_to` DATETIME(3) NOT NULL,
-    `status` ENUM('ACTIVE', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updated_at` DATETIME(3) NOT NULL,
+CREATE TABLE "vouchers" (
+    "voucher_id" SERIAL NOT NULL,
+    "code" VARCHAR(50) NOT NULL,
+    "discount_value" DECIMAL(12,2) NOT NULL,
+    "conditions" TEXT,
+    "valid_from" TIMESTAMP(3) NOT NULL,
+    "valid_to" TIMESTAMP(3) NOT NULL,
+    "status" "VoucherStatus" NOT NULL DEFAULT 'ACTIVE',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-    UNIQUE INDEX `vouchers_code_key`(`code`),
-    INDEX `vouchers_status_valid_from_valid_to_idx`(`status`, `valid_from`, `valid_to`),
-    PRIMARY KEY (`voucher_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "vouchers_pkey" PRIMARY KEY ("voucher_id")
+);
 
 -- Giỏ hàng (1 khách hàng - 1 giỏ)
-CREATE TABLE `carts` (
-    `cart_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `customer_id` INTEGER NOT NULL,
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updated_at` DATETIME(3) NOT NULL,
+CREATE TABLE "carts" (
+    "cart_id" SERIAL NOT NULL,
+    "customer_id" INTEGER NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-    UNIQUE INDEX `carts_customer_id_key`(`customer_id`),
-    PRIMARY KEY (`cart_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "carts_pkey" PRIMARY KEY ("cart_id")
+);
 
 -- Sản phẩm trong giỏ hàng
-CREATE TABLE `cart_items` (
-    `cart_item_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `cart_id` INTEGER NOT NULL,
-    `product_id` INTEGER NOT NULL,
-    `quantity` INTEGER NOT NULL DEFAULT 1,
+CREATE TABLE "cart_items" (
+    "cart_item_id" SERIAL NOT NULL,
+    "cart_id" INTEGER NOT NULL,
+    "product_id" INTEGER NOT NULL,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
 
-    INDEX `cart_items_product_id_idx`(`product_id`),
-    UNIQUE INDEX `cart_items_cart_id_product_id_key`(`cart_id`, `product_id`),
-    PRIMARY KEY (`cart_item_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "cart_items_pkey" PRIMARY KEY ("cart_item_id")
+);
 
 -- ---------------------------------------------------------------------
--- 3. Khoá ngoại
+-- 4. Index (Postgres tách CREATE INDEX ra khỏi CREATE TABLE)
 -- ---------------------------------------------------------------------
-ALTER TABLE `products` ADD CONSTRAINT `products_category_id_fkey` FOREIGN KEY (`category_id`) REFERENCES `categories`(`category_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
-ALTER TABLE `inventory_transactions` ADD CONSTRAINT `inventory_transactions_product_id_fkey` FOREIGN KEY (`product_id`) REFERENCES `products`(`product_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
-ALTER TABLE `inventory_transactions` ADD CONSTRAINT `inventory_transactions_staff_id_fkey` FOREIGN KEY (`staff_id`) REFERENCES `users`(`user_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
-ALTER TABLE `orders` ADD CONSTRAINT `orders_customer_id_fkey` FOREIGN KEY (`customer_id`) REFERENCES `users`(`user_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
-ALTER TABLE `order_details` ADD CONSTRAINT `order_details_order_id_fkey` FOREIGN KEY (`order_id`) REFERENCES `orders`(`order_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE `order_details` ADD CONSTRAINT `order_details_product_id_fkey` FOREIGN KEY (`product_id`) REFERENCES `products`(`product_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
-ALTER TABLE `reviews` ADD CONSTRAINT `reviews_customer_id_fkey` FOREIGN KEY (`customer_id`) REFERENCES `users`(`user_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE `reviews` ADD CONSTRAINT `reviews_product_id_fkey` FOREIGN KEY (`product_id`) REFERENCES `products`(`product_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE `carts` ADD CONSTRAINT `carts_customer_id_fkey` FOREIGN KEY (`customer_id`) REFERENCES `users`(`user_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE `cart_items` ADD CONSTRAINT `cart_items_cart_id_fkey` FOREIGN KEY (`cart_id`) REFERENCES `carts`(`cart_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE `cart_items` ADD CONSTRAINT `cart_items_product_id_fkey` FOREIGN KEY (`product_id`) REFERENCES `products`(`product_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+CREATE UNIQUE INDEX "categories_category_name_key" ON "categories"("category_name");
+CREATE UNIQUE INDEX "products_sku_code_key" ON "products"("sku_code");
+CREATE INDEX "products_category_id_idx" ON "products"("category_id");
+CREATE INDEX "products_status_idx" ON "products"("status");
+CREATE INDEX "inventory_transactions_product_id_idx" ON "inventory_transactions"("product_id");
+CREATE INDEX "inventory_transactions_staff_id_idx" ON "inventory_transactions"("staff_id");
+CREATE INDEX "inventory_transactions_created_at_idx" ON "inventory_transactions"("created_at");
+CREATE INDEX "orders_customer_id_idx" ON "orders"("customer_id");
+CREATE INDEX "orders_status_idx" ON "orders"("status");
+CREATE INDEX "orders_created_at_idx" ON "orders"("created_at");
+CREATE INDEX "order_details_product_id_idx" ON "order_details"("product_id");
+CREATE UNIQUE INDEX "order_details_order_id_product_id_key" ON "order_details"("order_id", "product_id");
+CREATE INDEX "reviews_product_id_status_idx" ON "reviews"("product_id", "status");
+CREATE INDEX "reviews_customer_id_idx" ON "reviews"("customer_id");
+CREATE UNIQUE INDEX "vouchers_code_key" ON "vouchers"("code");
+CREATE INDEX "vouchers_status_valid_from_valid_to_idx" ON "vouchers"("status", "valid_from", "valid_to");
+CREATE UNIQUE INDEX "carts_customer_id_key" ON "carts"("customer_id");
+CREATE INDEX "cart_items_product_id_idx" ON "cart_items"("product_id");
+CREATE UNIQUE INDEX "cart_items_cart_id_product_id_key" ON "cart_items"("cart_id", "product_id");
 
 -- ---------------------------------------------------------------------
--- 4. Đồng bộ trạng thái migration cho Prisma
+-- 5. Khoá ngoại
+-- ---------------------------------------------------------------------
+ALTER TABLE "products" ADD CONSTRAINT "products_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "categories"("category_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "inventory_transactions" ADD CONSTRAINT "inventory_transactions_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("product_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "inventory_transactions" ADD CONSTRAINT "inventory_transactions_staff_id_fkey" FOREIGN KEY ("staff_id") REFERENCES "users"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "orders" ADD CONSTRAINT "orders_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "users"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "order_details" ADD CONSTRAINT "order_details_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "orders"("order_id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "order_details" ADD CONSTRAINT "order_details_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("product_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "reviews" ADD CONSTRAINT "reviews_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "users"("user_id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "reviews" ADD CONSTRAINT "reviews_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("product_id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "carts" ADD CONSTRAINT "carts_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "users"("user_id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_cart_id_fkey" FOREIGN KEY ("cart_id") REFERENCES "carts"("cart_id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("product_id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- ---------------------------------------------------------------------
+-- 6. Đồng bộ trạng thái migration cho Prisma
 -- ---------------------------------------------------------------------
 -- Đánh dấu migration `20261031174921_init` là ĐÃ CHẠY, để `npx prisma
 -- migrate status` / `migrate dev` không đòi reset lại database.
@@ -255,52 +282,52 @@ ALTER TABLE `cart_items` ADD CONSTRAINT `cart_items_product_id_fkey` FOREIGN KEY
 --
 -- Nếu sau này file migration đó bị sửa và Prisma báo lỗi checksum, chạy:
 --   npx prisma migrate resolve --applied 20261031174921_init
-CREATE TABLE `_prisma_migrations` (
-    `id` VARCHAR(36) NOT NULL,
-    `checksum` VARCHAR(64) NOT NULL,
-    `finished_at` DATETIME(3) NULL,
-    `migration_name` VARCHAR(255) NOT NULL,
-    `logs` TEXT NULL,
-    `rolled_back_at` DATETIME(3) NULL,
-    `started_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `applied_steps_count` INTEGER UNSIGNED NOT NULL DEFAULT 0,
+CREATE TABLE "_prisma_migrations" (
+    "id" VARCHAR(36) NOT NULL,
+    "checksum" VARCHAR(64) NOT NULL,
+    "finished_at" TIMESTAMPTZ,
+    "migration_name" VARCHAR(255) NOT NULL,
+    "logs" TEXT,
+    "rolled_back_at" TIMESTAMPTZ,
+    "started_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "applied_steps_count" INTEGER NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "_prisma_migrations_pkey" PRIMARY KEY ("id")
+);
 
-INSERT INTO `_prisma_migrations`
-  (`id`, `checksum`, `finished_at`, `migration_name`, `started_at`, `applied_steps_count`)
+INSERT INTO "_prisma_migrations"
+  ("id", "checksum", "finished_at", "migration_name", "started_at", "applied_steps_count")
 VALUES (
-  UUID(),
-  '910e4de264b82e57388fbf1d0f8913e743b2eb3199c95c33aab4206dd016035a',
-  NOW(3),
+  gen_random_uuid()::text,
+  '6e99907f7e12d315078d6c2f3fa673844f024bad32220a1f98a8cc0671289cfd',
+  now(),
   '20261031174921_init',
-  NOW(3),
+  now(),
   1
 );
 
 -- ---------------------------------------------------------------------
--- 5. Dữ liệu khởi tạo: tài khoản admin
+-- 7. Dữ liệu khởi tạo: tài khoản admin
 -- ---------------------------------------------------------------------
 -- Mật khẩu đã hash bcrypt. Đăng nhập: admin@test.com / admin123
-INSERT INTO `users` (`full_name`, `email`, `password`, `role`, `status`, `created_at`, `updated_at`)
+INSERT INTO "users" ("full_name", "email", "password", "role", "status", "created_at", "updated_at")
 VALUES (
   'Quản Trị Viên',
   'admin@test.com',
   '$2b$10$i0IGmB3ElkF.N4Jbf3LEc.SlZvgHrdEMpG5BH/W4Z3lJPIPF2nSnS',
   'ADMIN',
   'ACTIVE',
-  NOW(3),
-  NOW(3)
+  now(),
+  now()
 )
-ON DUPLICATE KEY UPDATE `email` = `email`;
+ON CONFLICT ("email") DO NOTHING;
 
 -- ---------------------------------------------------------------------
--- 6. Kiểm tra kết quả
+-- 8. Kiểm tra kết quả
 -- ---------------------------------------------------------------------
-SELECT TABLE_NAME AS 'Bảng đã tạo'
-FROM information_schema.TABLES
-WHERE TABLE_SCHEMA = 'opl'
-ORDER BY TABLE_NAME;
+SELECT table_name AS "Bảng đã tạo"
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
 
-SELECT `user_id`, `email`, `role`, `status` FROM `users`;
+SELECT "user_id", "email", "role", "status" FROM "users";

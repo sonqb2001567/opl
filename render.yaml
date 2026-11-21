@@ -1,0 +1,64 @@
+# =====================================================================
+# OPL Ecommerce Backend - Render Blueprint (free tier)
+# =====================================================================
+# Cách dùng: Render Dashboard -> New -> Blueprint -> chọn repo này.
+# Render đọc file này và tạo 1 web service + 1 database Postgres.
+#
+# GIỚI HẠN CỦA FREE TIER - đọc trước khi dùng:
+#   - Web service NGỦ sau 15 phút không có request; request kế tiếp
+#     đánh thức lại, mất ~1 phút nên request đầu dễ bị timeout ở client.
+#     (Đây là hành vi mong muốn: không bật 24/7, tự dậy khi cần.)
+#   - Không có persistent disk => thư mục /app/uploads bị xoá mỗi lần
+#     ngủ hoặc deploy lại. Ảnh sản phẩm upload lên sẽ 404 sau đó.
+#   - Database free HẾT HẠN 30 NGÀY sau khi tạo (có 14 ngày gia hạn để
+#     nâng cấp, sau đó bị xoá), dung lượng 1 GB, mỗi workspace 1 cái.
+#     Hết hạn thì tạo database mới rồi chạy lại prisma/database-setup.sql.
+#   - 750 giờ instance/tháng cho cả workspace.
+# =====================================================================
+
+databases:
+  - name: opl-db
+    databaseName: opl
+    user: opl
+    plan: free
+    region: singapore
+    postgresMajorVersion: '17'
+    # Mở để chạy prisma/database-setup.sql từ máy dev qua External URL.
+    # Siết lại được: thay bằng IP của bạn (xem https://ifconfig.me) dạng
+    # `source: 1.2.3.4/32`. Mật khẩu do Render sinh, không đặt tên dễ đoán.
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: cho phép chạy script setup/backup từ máy dev
+
+services:
+  - type: web
+    name: opl-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # GET / trả về "Hello World" - endpoint nhẹ nhất để Render kiểm tra deploy
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      # Internal URL (mạng riêng của Render, cùng region) - nhanh hơn và
+      # không cần SSL. Render tự điền, không commit connection string.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: opl-db
+          property: connectionString
+      # Render sinh giá trị random 1 lần rồi giữ nguyên qua các lần deploy.
+      # Đổi giá trị này = vô hiệu toàn bộ JWT đã phát.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PORT
+        value: '3000'
+      # Bật /docs để teammate có Swagger UI. Đổi thành false nếu muốn đóng.
+      - key: SWAGGER_ENABLED
+        value: 'true'
+      - key: SWAGGER_PATH
+        value: docs
+      # Giữ giờ VN giống máy dev để created_at và báo cáo doanh thu không lệch
+      - key: TZ
+        value: Asia/Ho_Chi_Minh

@@ -5,22 +5,32 @@
 |---|---|---|
 | Node.js | 22+ (máy dev đang dùng 24.20.0) | project dùng ESM (`"type": "module"`); `package.json` không khai báo `engines` nên đây là mức đã chạy thực tế |
 | npm | 10+ (đang dùng 11.19.0) | |
-| MySQL | 8.0+ | Windows: service `MYSQL80` phải đang chạy |
+| PostgreSQL | 16+ (dev/deploy đang dùng 17) | Windows: service `postgresql-x64-17` phải đang chạy |
 
 Kiểm tra nhanh:
 
 ```bash
 node --version
 npm --version
-mysql --version
+psql --version
 ```
 
-Trên Windows nếu `mysql` chưa có trong PATH, đường dẫn thường là:
-`C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe`
+Trên Windows nếu `psql` chưa có trong PATH, đường dẫn thường là:
+`C:\Program Files\PostgreSQL\17\bin\psql.exe`
+
+> Project dùng **PostgreSQL**, không phải MySQL. Lý do: bản deploy chạy trên Render
+> free tier mà Render không có MySQL managed (xem mục 10). Prisma chỉ cho một
+> `provider` duy nhất nên local và server dùng cùng một loại database.
+>
+> Không muốn cài Postgres lên máy? Dùng Docker — xem **mục 9**, chỉ cần Docker.
 
 ---
 
 ## 2. Cài đặt (5 bước)
+
+> Muốn chạy trên server bằng Docker thay vì cài tay Node + Postgres? Bỏ qua mục này,
+> xem thẳng **mục 9 — Chạy bằng Docker**. Muốn deploy lên Render free tier để
+> người khác gọi API qua Internet? Xem **mục 10**.
 
 ### Bước 1 — Clone và cài package
 
@@ -32,38 +42,51 @@ npm install
 
 ### Bước 2 — Tạo database
 
-Chạy script `prisma/database-setup.sql`. Script này tạo database `opl`, toàn bộ
-11 bảng, khoá ngoại, index, đánh dấu migration của Prisma, và seed 1 tài khoản admin.
-
-**Cách A — dòng lệnh** (từ thư mục `ecommerce-webapp`):
+Khác MySQL, Postgres **không** có `CREATE DATABASE IF NOT EXISTS`, nên phải tạo
+database rỗng trước rồi mới nạp script:
 
 ```bash
-mysql -u root -p < prisma/database-setup.sql
+# 1. Tạo database rỗng tên `opl`
+createdb -U postgres opl
+#    hoặc: psql -U postgres -c "CREATE DATABASE opl;"
+
+# 2. Nạp toàn bộ cấu trúc + admin
+psql -U postgres -d opl -f prisma/database-setup.sql
 ```
 
-**Cách B — MySQL Workbench / DBeaver:** mở file `prisma/database-setup.sql`, bấm
+Script `prisma/database-setup.sql` tạo 10 kiểu enum, 11 bảng, khoá ngoại, index,
+đánh dấu migration của Prisma, và seed 1 tài khoản admin.
+
+**Không có `psql` trong PATH?** Làm xong bước 3 (`.env`) rồi dùng Prisma để nạp,
+không cần client Postgres:
+
+```bash
+npm run db:setup
+```
+
+**pgAdmin / DBeaver:** tạo database `opl`, mở file `prisma/database-setup.sql`,
 Execute toàn bộ script.
 
 Chạy xong script in ra danh sách 12 bảng (11 bảng + `_prisma_migrations`) và dòng
 tài khoản admin. Nếu thấy vậy là thành công.
 
-> ⚠️ Script **xoá sạch** dữ liệu cũ trong database `opl` rồi tạo lại. Chỉ chạy khi
+> ⚠️ Script **xoá sạch** bảng cũ trong database `opl` rồi tạo lại. Chỉ chạy khi
 > bạn muốn làm mới database.
 
-> Muốn dùng tên database khác `opl`? Sửa `opl` ở 3 chỗ trong file SQL
-> (`CREATE DATABASE`, `USE`, câu `SELECT` cuối file) và sửa `DATABASE_URL` ở bước 3
-> cho khớp.
+> Muốn dùng tên database khác `opl`? Chỉ cần tạo database tên khác và sửa
+> `DATABASE_URL` ở bước 3 cho khớp — script SQL không chứa tên database (chỉ câu
+> `SELECT` kiểm tra ở cuối lọc theo schema `public`).
 
 ### Bước 3 — Tạo file `.env`
 
-Copy `.env.example` thành `.env` rồi điền mật khẩu MySQL của bạn:
+Copy `.env.example` thành `.env` rồi điền mật khẩu Postgres của bạn:
 
 ```bash
 cp .env.example .env     # Windows PowerShell: Copy-Item .env.example .env
 ```
 
 ```ini
-DATABASE_URL="mysql://root:MAT_KHAU_CUA_BAN@localhost:3306/opl"
+DATABASE_URL="postgresql://postgres:MAT_KHAU_CUA_BAN@localhost:5432/opl"
 JWT_SECRET="doi_thanh_chuoi_random_dai"
 PORT=3000
 ```
@@ -152,8 +175,8 @@ Tạo tương tự với `"role":"INVENTORY_STAFF"`. Khách hàng thì tự đă
 
 `POST /users` chỉ tạo được nhân viên — `CreateStaffDto` giới hạn `role` trong
 `PRODUCT_STAFF` / `INVENTORY_STAFF`, không tạo được `ADMIN` hay `CUSTOMER`.
-Mật khẩu tối thiểu 6 ký tự. Muốn thêm admin thứ hai thì chạy thủ công trong MySQL
-hoặc dùng `PATCH /users/:id/role`.
+Mật khẩu tối thiểu 6 ký tự. Muốn thêm admin thứ hai thì chạy SQL thủ công trong
+Postgres hoặc dùng `PATCH /users/:id/role`.
 
 ---
 
@@ -169,6 +192,8 @@ hoặc dùng `PATCH /users/:id/role`.
 | `npm run format` | Format bằng prettier |
 | `npm test` | Unit test (vitest) |
 | `npm run test:e2e` | Test e2e |
+| `npm run db:setup` | Nạp `prisma/database-setup.sql` qua Prisma (xoá bảng cũ, tạo lại + admin) |
+| `npm run db:seed:admin` | Chỉ seed lại tài khoản admin (không xoá gì) |
 | `npm run test:api` | Chạy bộ test API Postman |
 | `npm run test:api:report` | Chạy test API + xuất report ra `postman/reports/` |
 
@@ -423,7 +448,7 @@ ecommerce-webapp/
 │   ├── main.ts                  # Bootstrap, ValidationPipe, CORS, static /uploads, Swagger
 │   ├── swagger.ts               # Cấu hình trang tài liệu API /docs
 │   ├── app.module.ts
-│   ├── prisma/                  # PrismaService (driver adapter MariaDB)
+│   ├── prisma/                  # PrismaService (driver adapter Postgres)
 │   ├── auth/                    # Đăng ký, đăng nhập, JWT strategy
 │   ├── common/                  # JwtAuthGuard, RolesGuard, decorators (@ApiAuth)
 │   ├── users/ categories/ products/ inventory/
@@ -431,7 +456,12 @@ ecommerce-webapp/
 │   └── settings/ reports/
 ├── postman/collections/         # Bộ test API
 ├── uploads/                     # Ảnh sản phẩm (không commit)
-└── .env.example                 # Mẫu biến môi trường
+├── Dockerfile                   # Build image (multi-stage: build → runtime)
+├── docker-compose.yml           # 2 service: app + postgres (xem mục 9)
+├── render.yaml                  # Blueprint deploy Render free tier (xem mục 10)
+├── .dockerignore
+├── .env.example                 # Mẫu biến môi trường khi chạy bằng npm
+└── .env.docker.example          # Mẫu biến môi trường khi chạy bằng Docker
 ```
 
 ---
@@ -441,18 +471,22 @@ ecommerce-webapp/
 **`Cannot find module './generated/prisma/client.js'`**
 Chưa chạy `npx prisma generate` (bước 4).
 
-**`Access denied for user 'root'@'localhost'`**
+**`password authentication failed for user "postgres"`**
 Sai mật khẩu trong `DATABASE_URL` ở `.env`.
 
-**`Unknown database 'opl'`**
-Chưa chạy `prisma/database-setup.sql` (bước 2), hoặc tên database trong `.env`
-không khớp tên trong file SQL.
+**`database "opl" does not exist`**
+Chưa tạo database (bước 2 — Postgres không tự tạo như MySQL), hoặc tên database
+trong `DATABASE_URL` khác tên đã `createdb`.
 
-**`ECONNREFUSED 127.0.0.1:3306`**
-MySQL chưa chạy. Windows: mở `services.msc`, start service `MYSQL80`. Hoặc:
+**`relation "users" does not exist`**
+Database đã có nhưng chưa nạp cấu trúc. Chạy `npm run db:setup`.
+
+**`ECONNREFUSED 127.0.0.1:5432`**
+Postgres chưa chạy. Windows: mở `services.msc`, start service `postgresql-x64-17`.
+Hoặc:
 
 ```powershell
-net start MYSQL80
+net start postgresql-x64-17
 ```
 
 **`403 Forbidden` dù đã đăng nhập bằng admin**
@@ -479,3 +513,348 @@ sang đường dẫn khác. Khi server start, log in ra đúng URL của trang t
 
 **Gọi thử trên `/docs` bị `401` dù đã Authorize**
 Token hết hạn (hạn 1 ngày) → login lại, bấm **Authorize** → **Logout** → dán token mới.
+
+---
+
+## 9. Chạy bằng Docker
+
+Cách này **không cần cài Node hay Postgres** trên server — chỉ cần Docker Engine 20.10+
+và Docker Compose v2. `docker-compose.yml` dựng 2 container:
+
+| Service | Image | Vai trò |
+|---|---|---|
+| `app` | build từ `Dockerfile` | NestJS API, cổng 3000 trong container |
+| `db` | `postgres:17-alpine` | PostgreSQL, chỉ nghe trong network nội bộ của compose |
+
+### Bước 1 — Tạo file `.env.docker`
+
+```bash
+cp .env.docker.example .env.docker     # PowerShell: Copy-Item .env.docker.example .env.docker
+```
+
+Sửa tối thiểu 2 biến trong file đó:
+
+```ini
+POSTGRES_PASSWORD=mat_khau_manh_cua_ban
+JWT_SECRET=chuoi_random_that_dai
+```
+
+> File này **khác** `.env` dùng cho `npm run start:dev`. Trong Docker, `DATABASE_URL`
+> do compose tự ghép (`postgresql://postgres:...@db:5432/opl`) — host là tên service
+> `db`, không phải `localhost`, nên không đặt `DATABASE_URL` trong `.env.docker`.
+
+> Dùng bản MySQL cũ của project rồi? Volume `mysql_data` không tương thích. Xoá một
+> lần trước khi chạy bản Postgres: `docker compose --env-file .env.docker down -v`
+> (mất dữ liệu cũ).
+
+### Bước 2 — Build và chạy
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+Lần đầu mất vài phút: build image (cài package, `npx prisma generate`, `nest build`)
+rồi Postgres tự tạo database `opl` (biến `POSTGRES_DB`) và chạy
+`prisma/database-setup.sql` để tạo 11 bảng + tài khoản admin — **không cần chạy tay
+script SQL hay `prisma migrate`**.
+
+⚠️ Luôn thêm `--env-file .env.docker`. Thiếu nó, compose đọc nhầm `.env` của máy dev
+và dừng với lỗi báo thiếu biến.
+
+### Bước 3 — Kiểm tra
+
+```bash
+docker compose --env-file .env.docker ps          # cả 2 service phải running/healthy
+docker compose --env-file .env.docker logs -f app # chờ dòng "Server đang chạy tại ..."
+curl http://localhost:3000
+```
+
+> `--env-file .env.docker` cần cho **mọi** lệnh compose (`ps`, `logs`, `exec`, `down`...),
+> không riêng `up` — compose nội suy biến mỗi lần đọc file cấu hình. Muốn gõ ngắn hơn,
+> đặt biến môi trường một lần cho cả phiên terminal rồi bỏ cờ đi:
+>
+> ```bash
+> export COMPOSE_ENV_FILES=.env.docker     # PowerShell: $env:COMPOSE_ENV_FILES=".env.docker"
+> docker compose ps
+> ```
+
+Đăng nhập bằng tài khoản admin ở mục 3 (`admin@test.com` / `admin123`) —
+**đổi mật khẩu ngay sau lần đăng nhập đầu tiên trên server thật.**
+
+### Các lệnh hay dùng
+
+Các lệnh dưới đây giả định đã `export COMPOSE_ENV_FILES=.env.docker`; nếu không, thêm
+`--env-file .env.docker` ngay sau `docker compose`.
+
+```bash
+# Xem log
+docker compose logs -f app
+
+# Deploy code mới (build lại image, giữ nguyên dữ liệu)
+git pull
+docker compose up -d --build
+
+# Dừng (giữ dữ liệu)
+docker compose down
+
+# Dừng và XOÁ SẠCH database + ảnh upload
+docker compose down -v
+
+# Vào shell psql trong container (không cần nhập mật khẩu, kết nối local trong container)
+docker compose exec db psql -U postgres -d opl
+
+# Backup / restore database
+docker compose exec -T db pg_dump -U postgres opl > backup.sql
+docker compose exec -T db psql -U postgres -d opl < backup.sql
+```
+
+### Dữ liệu được giữ ở đâu
+
+Hai Docker volume, không mất khi `docker compose down` hay deploy lại:
+
+| Volume | Nội dung |
+|---|---|
+| `pgdata` | Toàn bộ database |
+| `uploads_data` | Ảnh sản phẩm (`/app/uploads`) |
+
+Chỉ `docker compose down -v` mới xoá chúng.
+
+### Lưu ý khi lên production
+
+- **Swagger**: `.env.docker.example` đặt sẵn `SWAGGER_ENABLED=false`. Muốn bật để test
+  thì đổi thành `true` rồi `up -d` lại.
+- **Cổng Postgres**: mặc định không mở ra ngoài. Cần nối pgAdmin/DBeaver từ máy bạn
+  thì bỏ comment phần `ports` của service `db` trong `docker-compose.yml` — chỉ nên
+  làm tạm thời.
+- **HTTPS**: app chạy HTTP trần. Trên server thật nên đặt Nginx/Caddy reverse proxy
+  phía trước và chỉ mở 80/443 ra internet.
+- **Đổi `POSTGRES_PASSWORD`** sau khi volume `pgdata` đã tạo thì **không** đổi được
+  mật khẩu thật của Postgres — phải `ALTER USER postgres PASSWORD '...'` trong psql
+  hoặc xoá volume làm lại từ đầu.
+
+### Sửa lỗi Docker
+
+**`app` restart liên tục, log báo `ECONNREFUSED` hoặc `password authentication failed`**
+`POSTGRES_PASSWORD` trong `.env.docker` khác mật khẩu đã lưu trong volume `pgdata`
+(đặt ở lần chạy đầu). Dùng lại mật khẩu cũ, hoặc `docker compose down -v` để làm lại
+từ đầu (mất dữ liệu).
+
+**`relation "users" does not exist`**
+Volume `pgdata` đã tồn tại từ trước nên Postgres **không** chạy lại
+`database-setup.sql` (script trong `docker-entrypoint-initdb.d` chỉ chạy khi volume
+còn rỗng). Nạp tay:
+
+```bash
+docker compose exec -T db psql -U postgres -d opl < prisma/database-setup.sql
+```
+
+**Compose báo thiếu `POSTGRES_PASSWORD` / `JWT_SECRET`**
+Quên `--env-file .env.docker`, hoặc chưa copy file từ `.env.docker.example`.
+
+**Build lỗi `Cannot find module './generated/prisma/client.js'`**
+Bước `npx prisma generate` trong `Dockerfile` bị bỏ qua — kiểm tra `.dockerignore`
+không loại nhầm `prisma/schema.prisma`.
+
+**Đổi code rồi mà container vẫn chạy code cũ**
+Thiếu `--build`: `docker compose --env-file .env.docker up -d --build`.
+
+**Tiếng Việt trong database bị hỏng (`Quáº£n Trá»‹ ViÃªn`)**
+Postgres mặc định dùng encoding UTF8 nên lỗi này hiếm khi đến từ server; thường là
+client (`cmd`/Git Bash) gửi hoặc hiển thị sai. Kiểm tra nhanh — phải ra đúng 13:
+
+```bash
+docker compose exec -T db psql -U postgres -d opl \
+  -c "SELECT char_length(full_name) FROM users WHERE user_id=1;"
+```
+
+---
+
+
+## 10. Deploy lên Render (free tier)
+
+Dùng khi frontend/tester cần gọi API qua Internet mà **không muốn clone project** và
+cũng không cần máy bạn phải bật. Render giữ một URL HTTPS **cố định** dạng
+`https://opl-api.onrender.com`.
+
+### Free tier hoạt động thế nào
+
+| | |
+|---|---|
+| **Ngủ sau 15 phút** không có request | Request kế tiếp tự đánh thức, mất **~1 phút**. Đây là hành vi đã chọn: không chạy 24/7, tự dậy khi cần |
+| **Ảnh upload sẽ mất** | Free tier không có persistent disk. `POST /products/{id}/image` vẫn chạy, nhưng sau khi service ngủ hoặc deploy lại thì `/uploads/...` trả 404 |
+| **Database free hết hạn sau 30 ngày** | Có 14 ngày gia hạn để nâng cấp, sau đó Render xoá. Dung lượng 1 GB, mỗi workspace chỉ 1 database free |
+| **750 giờ instance/tháng** | Tính chung cho cả workspace |
+
+### Bước 1 — Đẩy code lên GitHub
+
+Render deploy từ Git, nên mọi file cấu hình phải được commit:
+
+```bash
+git add -A
+git commit -m "Deploy Render: chuyen sang PostgreSQL"
+git push
+```
+
+### Bước 2 — Tạo Blueprint trên Render
+
+File `render.yaml` ở gốc repo đã khai báo sẵn web service + database, không phải
+điền tay gì trên giao diện.
+
+1. Vào [dashboard.render.com](https://dashboard.render.com) → **New** → **Blueprint**.
+2. Kết nối GitHub, chọn repo này → **Connect**.
+3. Render đọc `render.yaml` và hiện 2 resource sắp tạo: `opl-api` (web) và `opl-db`
+   (Postgres) → **Apply**.
+
+Build lần đầu mất ~5–10 phút (Docker build: `npm ci`, `prisma generate`, `nest build`).
+Xem tiến trình ở tab **Logs** của service `opl-api`.
+
+`DATABASE_URL` và `JWT_SECRET` do Render tự điền (`fromDatabase` và `generateValue`
+trong `render.yaml`) — **không** commit connection string hay secret vào repo.
+
+### Bước 3 — Nạp cấu trúc database
+
+Database mới tạo là **rỗng**, chưa có bảng. Render free không chạy được pre-deploy
+command, nên nạp một lần từ máy bạn qua **External Database URL**:
+
+1. Dashboard → database `opl-db` → **Connect** → copy **External Database URL**.
+2. Chạy từ thư mục `ecommerce-webapp` (nhớ thêm `?sslmode=require` vào cuối URL):
+
+```powershell
+# PowerShell
+$env:DATABASE_URL="postgresql://opl:...@dpg-xxxx.singapore-postgres.render.com/opl?sslmode=require"
+npm run db:setup
+```
+
+```bash
+# Git Bash / Linux / macOS
+DATABASE_URL="postgresql://opl:...@dpg-xxxx.singapore-postgres.render.com/opl?sslmode=require" npm run db:setup
+```
+
+Lệnh này tạo 11 bảng, index, khoá ngoại và tài khoản admin — giống hệt lúc cài local.
+
+> `?sslmode=require` là bắt buộc khi kết nối từ ngoài vào Render. Thiếu nó sẽ lỗi
+> `SSL connection is required`. Bên trong Render thì app dùng Internal URL, không cần SSL.
+
+### Bước 4 — Kiểm tra
+
+```bash
+curl https://opl-api.onrender.com            # -> Hello World!
+curl -X POST https://opl-api.onrender.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"admin@test.com\",\"password\":\"admin123\"}"
+```
+
+Trang tài liệu: **https://opl-api.onrender.com/docs** (`SWAGGER_ENABLED=true` đã đặt
+sẵn trong `render.yaml`). Swagger UI tự lấy origin của trang nên không cần `PUBLIC_URL`.
+
+Gửi teammate đúng URL đó — khác Cloudflare quick tunnel, URL này **không đổi** và
+không phụ thuộc máy bạn có bật hay không.
+
+### Chạy bộ test Postman trên bản Render
+
+Collection mặc định trỏ `baseUrl` về `http://localhost:3000`, ghi đè lúc chạy chứ
+không cần sửa file:
+
+```bash
+curl https://opl-api.onrender.com            # đánh thức service trước
+npm run test:api -- --env-var baseUrl=https://opl-api.onrender.com
+```
+
+> Bộ test tạo dữ liệu thật (user, sản phẩm, đơn hàng) vào database Render. Chạy nhiều
+> lần sẽ đầy 1 GB quota và một số request kiểm tra trùng email/SKU có thể lệch kết
+> quả. Nên chạy bộ test đầy đủ ở local, trên Render chỉ chạy smoke.
+
+### Deploy code mới
+
+`autoDeployTrigger: commit` nên chỉ cần:
+
+```bash
+git push
+```
+
+Render tự build lại và deploy. Muốn deploy tay: dashboard → **Manual Deploy**.
+
+### Việc phải làm định kỳ
+
+- **Sau 30 ngày**, database free hết hạn. Tạo database free mới (hoặc `Apply` lại
+  blueprint), cập nhật `DATABASE_URL` của service nếu Render không tự nối, rồi chạy
+  lại bước 3. Dữ liệu cũ **không** tự chuyển sang.
+- **Muốn giữ dữ liệu trước khi hết hạn**: `pg_dump "<External URL>" > backup.sql`.
+
+### Bảo mật khi mở ra Internet
+
+- **Đổi mật khẩu admin ngay**: `admin@test.com` / `admin123` là tài khoản seed ai
+  cũng biết, và URL `.onrender.com` thì public. Dùng `PATCH /users/:id` hoặc đổi hash
+  trong `prisma/seed-admin.sql` trước khi nạp.
+- **`ipAllowList` trong `render.yaml` đang mở `0.0.0.0/0`** để chạy được bước 3 từ máy
+  bạn. Xong rồi nên siết lại thành IP của bạn (`https://ifconfig.me` → `1.2.3.4/32`)
+  rồi commit + Apply lại blueprint.
+- **Đừng dùng cho dữ liệu thật** — đây là môi trường demo/test.
+
+### Sửa lỗi Render
+
+**Deploy fail: `Port scan timeout reached, no open ports detected`**
+App không bind `0.0.0.0`. `src/main.ts` đã gọi `app.listen(port, '0.0.0.0')` — nếu
+sửa dòng đó thì phải giữ tham số host.
+
+**Request đầu tiên timeout / Postman báo `ETIMEDOUT`**
+Service đang ngủ, cần ~1 phút để dậy. Gọi `GET /` một lần cho nó thức rồi mới chạy bộ
+test; trong Postman tăng **Settings → Request timeout** lên 90000 ms.
+
+**App log `relation "users" does not exist`**
+Chưa chạy bước 3, hoặc đã tạo database mới sau khi database cũ hết hạn.
+
+**App log `SSL connection is required` khi chạy `npm run db:setup`**
+Thiếu `?sslmode=require` ở cuối External Database URL.
+
+**502 Bad Gateway ngay sau khi deploy**
+Container còn đang khởi động. Đợi tới khi log in ra `Server đang chạy tại ...`.
+
+**Build vượt quota build minutes**
+Mỗi `git push` là một lần build Docker. Gộp commit trước khi push nếu đang gần hết quota.
+
+---
+
+## 11. Chia sẻ nhanh từ máy local (Cloudflare Tunnel)
+
+Cách cũ, vẫn dùng được khi muốn teammate gọi thẳng vào Docker trên máy bạn (ví dụ
+đang sửa code và muốn họ test ngay, không chờ build trên Render).
+
+### Cài một lần
+
+```powershell
+winget install --id Cloudflare.cloudflared
+```
+
+### Mỗi lần muốn chia sẻ
+
+```bash
+npm run share
+```
+
+Script `scripts/share-api.ps1` bật stack Docker, chờ API trả lời, mở tunnel rồi in URL
+và copy vào clipboard:
+
+```
+  API    https://abc-def-ghi.trycloudflare.com
+  Docs   https://abc-def-ghi.trycloudflare.com/docs
+```
+
+`Ctrl+C` để đóng tunnel — container Docker vẫn chạy tiếp.
+
+> Script chạy `up -d` **không** kèm `--build` cho nhanh. Vừa sửa code thì build lại
+> trước, nếu không tunnel sẽ phục vụ code cũ:
+> `docker compose --env-file .env.docker up -d --build`
+
+### Khác biệt so với Render
+
+| | Cloudflare quick tunnel | Render free |
+|---|---|---|
+| URL | Random, đổi mỗi lần chạy lại | Cố định `opl-api.onrender.com` |
+| Máy bạn tắt | API chết theo | API vẫn sống (ngủ rồi tự dậy) |
+| Độ trễ lần đầu | Không | ~1 phút nếu service đang ngủ |
+| Ảnh upload | Giữ trong volume Docker | Mất khi ngủ/deploy lại |
+| Dữ liệu | Postgres trong Docker trên máy bạn | Postgres free, hết hạn 30 ngày |
+
+Cần API sống 24/7 và giữ được ảnh upload thì thuê **VPS ~$5/tháng** rồi chạy nguyên
+`docker-compose.yml` này.

@@ -33,7 +33,9 @@ async function bootstrap() {
   }
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  // Bind 0.0.0.0 để PaaS (Render) nhìn thấy cổng; mặc định chỉ listen localhost
+  // là coi như service không mở cổng và deploy sẽ bị đánh fail.
+  await app.listen(port, '0.0.0.0');
   console.log(`Server đang chạy tại http://localhost:${port}`);
   if (swaggerEnabled) {
     console.log(`Tài liệu API: http://localhost:${port}/${SWAGGER_PATH}`);

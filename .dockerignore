@@ -1,0 +1,44 @@
+# Thư mục cài sẵn trên máy dev - image tự cài lại bằng `npm ci`
+node_modules
+
+# Build cũ trên máy dev - image tự build lại
+dist
+build
+*.tsbuildinfo
+
+# Prisma Client sinh ở máy dev - image tự chạy `npx prisma generate`
+src/generated/prisma
+
+# Biến môi trường - KHÔNG được đóng vào image (dùng --env-file khi chạy)
+.env
+.env.*
+
+# Ảnh upload - lưu trong Docker volume, không nằm trong image
+uploads
+
+# Git, IDE, cấu hình công cụ AI
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+.claude
+.agents
+.windsurf
+.cursor
+.postman
+skills-lock.json
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
+# Test, báo cáo, tài liệu - không cần để chạy server
+test
+postman/reports
+postman/skills
+coverage
+BAO-CAO-*.md
+bao-cao-*.md
+*.docx
+*.xlsx
+*.log

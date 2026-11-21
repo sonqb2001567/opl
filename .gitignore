@@ -38,8 +38,9 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files (.env.example thì VẪN commit)
+# dotenv environment variable files (.env.example, .env.docker.example thì VẪN commit)
 .env
+.env.docker
 .env.development.local
 .env.test.local
 .env.production.local
