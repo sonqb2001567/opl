@@ -1,0 +1,36 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products'
+order: 3500
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Áo khoác 2 danh mục",
+      "skuCode": "{{multiCategorySku}}",
+      "price": 250000,
+      "categoryIds": [{{categoryId}}, {{secondCategoryId}}],
+      "description": "Dùng test quan hệ N-N Category - Product"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('multiCategorySku', 'SKU-NN-' + Date.now());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo sản phẩm thuộc 2 danh mục (201)', () => {
+        pm.response.to.have.status(201);
+        const res = pm.response.json();
+        const ids = res.categories.map((c) => c.id);
+        pm.expect(ids).to.have.lengthOf(2);
+        pm.expect(ids).to.include(Number(pm.collectionVariables.get('categoryId')));
+        pm.expect(ids).to.include(Number(pm.collectionVariables.get('secondCategoryId')));
+        pm.collectionVariables.set('multiCategoryProductId', res.id);
+      });

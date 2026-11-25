@@ -17,14 +17,17 @@ export class CreateStaffDto {
   @MinLength(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' })
   password: string;
 
-  // Admin chỉ được tạo tài khoản nhân viên
+  // Admin tạo được nhân viên và cả admin khác (không tạo được CUSTOMER -
+  // khách hàng phải tự đăng ký qua POST /auth/register để xác thực email)
   @ApiProperty({
-    enum: ['PRODUCT_STAFF', 'INVENTORY_STAFF'],
+    enum: ['PRODUCT_STAFF', 'INVENTORY_STAFF', 'ADMIN'],
     example: 'PRODUCT_STAFF',
-    description: 'Admin chỉ được tạo tài khoản nhân viên',
+    description: 'Admin tạo được nhân viên hoặc admin khác. Khách hàng phải tự đăng ký qua POST /auth/register.',
   })
-  @IsIn(['PRODUCT_STAFF', 'INVENTORY_STAFF'], { message: 'Role phải là PRODUCT_STAFF hoặc INVENTORY_STAFF' })
-  role: 'PRODUCT_STAFF' | 'INVENTORY_STAFF';
+  @IsIn(['PRODUCT_STAFF', 'INVENTORY_STAFF', 'ADMIN'], {
+    message: 'Role phải là PRODUCT_STAFF, INVENTORY_STAFF hoặc ADMIN',
+  })
+  role: 'PRODUCT_STAFF' | 'INVENTORY_STAFF' | 'ADMIN';
 
   @ApiPropertyOptional({ example: '0901234567', maxLength: 20 })
   @IsOptional()

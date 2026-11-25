@@ -1,4 +1,6 @@
 $kind: collection
 name: 01 Auth
-description: Đăng ký, đăng nhập, thông tin cá nhân
+description: |-
+  Đăng ký, xác thực email bằng OTP, đăng nhập, thông tin cá nhân,
+  quên mật khẩu, và API tạo admin đầu tiên.
 order: 1000

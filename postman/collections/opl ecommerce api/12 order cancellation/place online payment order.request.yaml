@@ -20,7 +20,10 @@ scripts:
     code: |-
       pm.test('Đặt đơn thanh toán chuyển khoản (201)', () => {
         pm.response.to.have.status(201);
-        const order = pm.response.json().order;
+        const res = pm.response.json();
+        // Giỏ chỉ có 1 sản phẩm nên tách ra đúng 1 đơn
+        pm.expect(res.orderCount).to.eql(1);
+        const order = res.orders[0];
         pm.expect(order.paymentMethod).to.eql('BANK_TRANSFER');
         pm.expect(order.paymentStatus).to.eql('UNPAID');
         // Không voucher: tổng = giá sp1 + phí ship

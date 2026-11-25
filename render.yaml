@@ -62,3 +62,23 @@ services:
       # Giữ giờ VN giống máy dev để created_at và báo cáo doanh thu không lệch
       - key: TZ
         value: Asia/Ho_Chi_Minh
+      # Key tạo tài khoản admin đầu tiên qua POST /auth/bootstrap-admin
+      # (header x-setup-key). Render sinh giá trị random, xem trong tab
+      # Environment của service. Chỉ dùng được khi DB chưa có admin nào.
+      - key: ADMIN_SETUP_KEY
+        generateValue: true
+      # Gửi email OTP (xác thực email / quên mật khẩu). KHÔNG commit mật khẩu
+      # vào file này - đặt MAIL_* trong tab Environment của Render (sync: false
+      # = Render hỏi giá trị khi tạo blueprint, không lưu trong repo).
+      # Bỏ trống cả 3 biến thì mã OTP chỉ được in ra log và trả về trong
+      # response (field devOtp) - tiện demo nhưng KHÔNG nên dùng thật.
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        value: '587'
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false

@@ -1,0 +1,19 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/products?categoryId={{secondCategoryId}}'
+order: 11500
+queryParams:
+  - key: categoryId
+    value: '{{secondCategoryId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Lọc theo danh mục phụ trả về sản phẩm N-N (200)', () => {
+        pm.response.to.have.status(200);
+        const res = pm.response.json();
+        const ids = res.items.map((p) => p.id);
+        pm.expect(ids).to.include(Number(pm.collectionVariables.get('multiCategoryProductId')));
+        // Sản phẩm chỉ thuộc danh mục chính thì không được lọt vào đây
+        pm.expect(ids).to.not.include(Number(pm.collectionVariables.get('productId')));
+      });

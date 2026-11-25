@@ -10,7 +10,7 @@ import type { UserRole, UserStatus } from '../generated/prisma/enums.js';
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Admin tạo tài khoản nhân viên
+  // Admin tạo tài khoản nhân viên / admin khác
   async createStaff(dto: CreateStaffDto) {
     const existed = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existed) {
@@ -26,6 +26,9 @@ export class UsersService {
         role: dto.role,
         phoneNumber: dto.phoneNumber,
         address: dto.address,
+        // Tài khoản do Admin tạo không cần xác thực OTP, đăng nhập được ngay.
+        // Chỉ khách hàng tự đăng ký mới phải xác thực email.
+        emailVerifiedAt: new Date(),
       },
     });
 

@@ -1,0 +1,21 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/auth/resend-otp'
+order: 9000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "{{customerEmail}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Email đã xác thực thì không gửi lại OTP (400)', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.json().message).to.include('đã được xác thực');
+      });

@@ -1,0 +1,28 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/categories'
+order: 1500
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "categoryName": "{{secondCategoryName}}"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Danh mục thứ 2, dùng để test quan hệ N-N: 1 sản phẩm thuộc nhiều danh mục
+      pm.collectionVariables.set('secondCategoryName', 'Danh mục phụ ' + Date.now());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Tạo danh mục thứ 2 thành công (201)', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('secondCategoryId', pm.response.json().id);
+      });

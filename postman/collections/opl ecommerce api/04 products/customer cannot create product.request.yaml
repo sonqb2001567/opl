@@ -14,7 +14,7 @@ body:
       "productName": "Sản phẩm của hacker",
       "skuCode": "SKU-HACK-1",
       "price": 1,
-      "categoryId": {{categoryId}}
+      "categoryIds": [{{categoryId}}]
     }
 scripts:
   - type: afterResponse

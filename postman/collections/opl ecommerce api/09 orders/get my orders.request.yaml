@@ -13,5 +13,14 @@ scripts:
         pm.response.to.have.status(200);
         const res = pm.response.json();
         pm.expect(res).to.be.an('array');
-        pm.expect(res.map((o) => o.id)).to.include(Number(pm.collectionVariables.get('orderId')));
+        const ids = res.map((o) => o.id);
+        // Giỏ 2 sản phẩm đã được tách thành 2 đơn riêng
+        pm.expect(ids).to.include(Number(pm.collectionVariables.get('orderId')));
+        pm.expect(ids).to.include(Number(pm.collectionVariables.get('splitOrderId')));
+      });
+      pm.test('Mỗi đơn chỉ có 1 dòng chi tiết (quan hệ 1-1)', () => {
+        pm.response.json().forEach((o) => {
+          pm.expect(o.orderDetail).to.be.an('object');
+          pm.expect(o.orderDetails).to.be.undefined;
+        });
       });

@@ -14,7 +14,7 @@ body:
       "productName": "Sản phẩm trùng SKU",
       "skuCode": "{{productSku1}}",
       "price": 99000,
-      "categoryId": {{categoryId}}
+      "categoryIds": [{{categoryId}}]
     }
 scripts:
   - type: afterResponse

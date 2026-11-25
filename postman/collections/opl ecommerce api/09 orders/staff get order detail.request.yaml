@@ -14,4 +14,7 @@ scripts:
         const res = pm.response.json();
         pm.expect(res.customer).to.be.an('object');
         pm.expect(res.customer.email).to.eql(pm.collectionVariables.get('customerEmail'));
+        // Quan hệ 1-1: 1 đơn - 1 dòng chi tiết
+        pm.expect(res.orderDetail).to.be.an('object');
+        pm.expect(res.orderDetail.product).to.be.an('object');
       });

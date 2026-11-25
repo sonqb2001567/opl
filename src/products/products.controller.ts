@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
   UploadedFile,
   UseGuards,
@@ -30,6 +31,7 @@ import { extname } from 'path';
 import { ProductsService } from './products.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
+import { SetProductCategoriesDto } from './dto/set-product-categories.dto.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
@@ -47,7 +49,12 @@ export class ProductsController {
     description: 'Mặc định chỉ trả về sản phẩm đang bán (ON_SALE). Truyền `status=ALL` để xem tất cả.',
   })
   @ApiQuery({ name: 'search', required: false, description: 'Tìm theo tên sản phẩm', example: 'iphone' })
-  @ApiQuery({ name: 'categoryId', required: false, description: 'Lọc theo ID danh mục', example: 1 })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    description: 'Lọc theo ID danh mục (sản phẩm thuộc nhiều danh mục nên chỉ cần khớp 1 danh mục)',
+    example: 1,
+  })
   @ApiQuery({
     name: 'status',
     required: false,
@@ -67,8 +74,10 @@ export class ProductsController {
             price: 29990000,
             status: 'ON_SALE',
             imageUrl: '/uploads/1731000000000-123456789.jpg',
-            categoryId: 1,
-            category: { id: 1, categoryName: 'Điện thoại', status: 'ACTIVE' },
+            categories: [
+              { id: 1, categoryName: 'Điện thoại', status: 'ACTIVE' },
+              { id: 2, categoryName: 'Hàng cao cấp', status: 'ACTIVE' },
+            ],
           },
         ],
         total: 1,
@@ -97,7 +106,10 @@ export class ProductsController {
   }
 
   // POST /products - Product Staff thêm sản phẩm
-  @ApiOperation({ summary: 'Thêm sản phẩm' })
+  @ApiOperation({
+    summary: 'Thêm sản phẩm',
+    description: 'Gán sản phẩm vào nhiều danh mục qua `categoryIds` (quan hệ N-N), cần ít nhất 1 danh mục ACTIVE.',
+  })
   @ApiConflictResponse({ description: 'Mã SKU đã tồn tại' })
   @ApiAuth('PRODUCT_STAFF')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -108,7 +120,10 @@ export class ProductsController {
   }
 
   // PATCH /products/:id - Chỉnh sửa sản phẩm
-  @ApiOperation({ summary: 'Chỉnh sửa sản phẩm' })
+  @ApiOperation({
+    summary: 'Chỉnh sửa sản phẩm',
+    description: 'Truyền `categoryIds` thì toàn bộ danh mục của sản phẩm bị ghi đè, bỏ trống thì giữ nguyên.',
+  })
   @ApiNotFoundResponse({ description: 'Không tìm thấy sản phẩm' })
   @ApiAuth('PRODUCT_STAFF')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -116,6 +131,39 @@ export class ProductsController {
   @Patch(':id')
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProductDto) {
     return this.productsService.update(id, dto);
+  }
+
+  // PUT /products/:id/categories - Gán lại toàn bộ danh mục cho sản phẩm
+  @ApiOperation({
+    summary: 'Gán lại danh mục cho sản phẩm (quan hệ N-N)',
+    description: 'Ghi đè toàn bộ danh mục cũ bằng danh sách `categoryIds` gửi lên.',
+  })
+  @ApiBadRequestResponse({ description: 'Danh mục không tồn tại hoặc đã ngừng sử dụng' })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy sản phẩm' })
+  @ApiAuth('PRODUCT_STAFF')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('PRODUCT_STAFF')
+  @Put(':id/categories')
+  setCategories(@Param('id', ParseIntPipe) id: number, @Body() dto: SetProductCategoriesDto) {
+    return this.productsService.setCategories(id, dto.categoryIds);
+  }
+
+  // DELETE /products/:id/categories/:categoryId - Bỏ 1 danh mục khỏi sản phẩm
+  @ApiOperation({
+    summary: 'Bỏ một danh mục khỏi sản phẩm',
+    description: 'Sản phẩm phải còn ít nhất 1 danh mục, nên không bỏ được danh mục cuối cùng.',
+  })
+  @ApiBadRequestResponse({ description: 'Đây là danh mục cuối cùng của sản phẩm' })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy sản phẩm, hoặc sản phẩm không thuộc danh mục này' })
+  @ApiAuth('PRODUCT_STAFF')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('PRODUCT_STAFF')
+  @Delete(':id/categories/:categoryId')
+  removeCategory(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('categoryId', ParseIntPipe) categoryId: number,
+  ) {
+    return this.productsService.removeCategory(id, categoryId);
   }
 
   // PATCH /products/:id/discontinue - Ngừng kinh doanh

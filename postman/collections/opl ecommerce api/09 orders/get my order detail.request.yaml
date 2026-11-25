@@ -13,5 +13,8 @@ scripts:
         pm.response.to.have.status(200);
         const res = pm.response.json();
         pm.expect(res.id).to.eql(Number(pm.collectionVariables.get('orderId')));
-        pm.expect(res.orderDetails.length).to.eql(2);
+        // Quan hệ 1-1: orderDetail là 1 object, không phải mảng
+        pm.expect(res.orderDetail).to.be.an('object');
+        pm.expect(res.orderDetail.productId).to.eql(Number(pm.collectionVariables.get('productId')));
+        pm.expect(res.orderDetail.quantity).to.eql(2);
       });

@@ -1,0 +1,22 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/auth/verify-email'
+order: 1300
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "{{customerEmail}}",
+      "otp": "{{customerOtp}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Xác thực email thành công (201)', () => {
+        pm.response.to.have.status(201);
+        pm.expect(pm.response.json().message).to.include('thành công');
+      });

@@ -20,8 +20,13 @@ import { ApiTag } from '../swagger.js';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // POST /users - Tạo tài khoản nhân viên
-  @ApiOperation({ summary: 'Tạo tài khoản nhân viên (PRODUCT_STAFF / INVENTORY_STAFF)' })
+  // POST /users - Tạo tài khoản nhân viên / admin
+  @ApiOperation({
+    summary: 'Tạo tài khoản nhân viên hoặc admin (PRODUCT_STAFF / INVENTORY_STAFF / ADMIN)',
+    description:
+      'Tài khoản tạo ở đây được xác thực email sẵn nên đăng nhập được ngay. ' +
+      'Admin đầu tiên của hệ thống tạo bằng `POST /auth/bootstrap-admin`.',
+  })
   @ApiConflictResponse({ description: 'Email đã được sử dụng' })
   @Post()
   createStaff(@Body() dto: CreateStaffDto) {

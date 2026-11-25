@@ -14,7 +14,7 @@ body:
       "productName": "Áo thun test",
       "skuCode": "{{productSku1}}",
       "price": 150000,
-      "categoryId": {{categoryId}},
+      "categoryIds": [{{categoryId}}],
       "description": "Sản phẩm chính dùng cho flow đặt hàng"
     }
 scripts:
@@ -31,7 +31,8 @@ scripts:
         const res = pm.response.json();
         pm.expect(res.status).to.eql('ON_SALE');
         pm.expect(Number(res.price)).to.eql(150000);
-        pm.expect(res.category.id).to.eql(Number(pm.collectionVariables.get('categoryId')));
+        // Quan hệ N-N: sản phẩm trả về mảng categories
+        pm.expect(res.categories.map((c) => c.id)).to.include(Number(pm.collectionVariables.get('categoryId')));
         pm.collectionVariables.set('productId', res.id);
         pm.collectionVariables.set('productPrice', String(Number(res.price)));
       });

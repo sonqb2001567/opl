@@ -1,0 +1,15 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/products/{{multiCategoryProductId}}/categories/{{categoryId}}'
+order: 11700
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Không bỏ được danh mục cuối cùng của sản phẩm (400)', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.json().message).to.include('ít nhất 1 danh mục');
+      });

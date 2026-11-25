@@ -1,6 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  ArrayUnique,
+  IsArray,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class CreateProductDto {
   @ApiProperty({ example: 'iPhone 15 Pro 256GB', maxLength: 255 })
@@ -21,10 +32,18 @@ export class CreateProductDto {
   @Min(0, { message: 'Giá bán không được âm' })
   price: number;
 
-  @ApiProperty({ example: 1, description: 'ID danh mục, lấy từ GET /categories' })
+  // Quan hệ N-N: 1 sản phẩm thuộc được nhiều danh mục
+  @ApiProperty({
+    example: [1, 2],
+    type: [Number],
+    description: 'Danh sách ID danh mục (lấy từ GET /categories). Phải có ít nhất 1 danh mục đang ACTIVE.',
+  })
+  @IsArray({ message: 'categoryIds phải là mảng ID danh mục' })
+  @ArrayNotEmpty({ message: 'Sản phẩm phải thuộc ít nhất 1 danh mục' })
+  @ArrayUnique({ message: 'Danh sách danh mục bị trùng' })
   @Type(() => Number)
-  @IsInt({ message: 'Danh mục không hợp lệ' })
-  categoryId: number;
+  @IsInt({ each: true, message: 'Danh mục không hợp lệ' })
+  categoryIds: number[];
 
   @ApiPropertyOptional({ example: 'Màn hình 6.1 inch, chip A17 Pro, pin 3274mAh' })
   @IsOptional()

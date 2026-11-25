@@ -27,9 +27,18 @@ scripts:
       pm.test('Đăng ký thành công (201)', () => {
         pm.response.to.have.status(201);
       });
-      pm.test('Response không chứa password', () => {
+      pm.test('Response không chứa password, email chưa xác thực', () => {
         const res = pm.response.json();
-        pm.expect(res.password).to.be.undefined;
-        pm.expect(res.email).to.eql(pm.collectionVariables.get('customerEmail'));
-        pm.expect(res.role).to.eql('CUSTOMER');
+        pm.expect(res.user.password).to.be.undefined;
+        pm.expect(res.user.email).to.eql(pm.collectionVariables.get('customerEmail'));
+        pm.expect(res.user.role).to.eql('CUSTOMER');
+        // Chưa xác thực OTP nên emailVerifiedAt vẫn null
+        pm.expect(res.user.emailVerifiedAt).to.eql(null);
+      });
+      pm.test('Có mã OTP để xác thực email', () => {
+        const res = pm.response.json();
+        // devOtp chỉ trả về khi server CHƯA cấu hình SMTP (MAIL_HOST/MAIL_USER/MAIL_PASS).
+        // Cấu hình SMTP thật thì mã chỉ nằm trong email, bộ test này sẽ không chạy được.
+        pm.expect(res.devOtp, 'cần bỏ cấu hình MAIL_* để chạy bộ test').to.be.a('string');
+        pm.collectionVariables.set('customerOtp', res.devOtp);
       });

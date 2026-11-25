@@ -14,7 +14,7 @@ body:
       "productName": "Sản phẩm tạm",
       "skuCode": "{{tempProductSku}}",
       "price": 10000,
-      "categoryId": {{categoryId}},
+      "categoryIds": [{{categoryId}}],
       "description": "Dùng test ngừng kinh doanh / bán lại / xóa"
     }
 scripts:

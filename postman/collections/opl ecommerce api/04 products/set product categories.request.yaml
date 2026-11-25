@@ -1,0 +1,25 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/products/{{multiCategoryProductId}}/categories'
+order: 11800
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "categoryIds": [{{categoryId}}, {{secondCategoryId}}]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Gán lại danh mục cho sản phẩm thành công (200)', () => {
+        pm.response.to.have.status(200);
+        const ids = pm.response.json().product.categories.map((c) => c.id);
+        pm.expect(ids).to.have.lengthOf(2);
+        pm.expect(ids).to.include(Number(pm.collectionVariables.get('secondCategoryId')));
+      });

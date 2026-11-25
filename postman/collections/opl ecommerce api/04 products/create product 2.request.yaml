@@ -14,7 +14,7 @@ body:
       "productName": "Quần jean test",
       "skuCode": "{{productSku2}}",
       "price": 80000,
-      "categoryId": {{categoryId}},
+      "categoryIds": [{{categoryId}}],
       "description": "Sản phẩm thứ 2, nhập kho ít để test báo cáo sắp hết hàng"
     }
 scripts:

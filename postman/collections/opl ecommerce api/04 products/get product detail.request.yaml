@@ -15,5 +15,7 @@ scripts:
         pm.expect(res.inStock).to.eql(false);
         pm.expect(res.averageRating).to.eql(0);
         pm.expect(res.reviewCount).to.eql(0);
-        pm.expect(res.category).to.be.an('object');
+        // Quan hệ N-N: trả về mảng categories thay vì 1 object category
+        pm.expect(res.categories).to.be.an('array');
+        pm.expect(res.categories.length).to.be.at.least(1);
       });

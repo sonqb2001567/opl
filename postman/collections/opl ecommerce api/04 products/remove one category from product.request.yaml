@@ -1,0 +1,17 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/products/{{multiCategoryProductId}}/categories/{{secondCategoryId}}'
+order: 11600
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Bỏ 1 danh mục khỏi sản phẩm thành công (200)', () => {
+        pm.response.to.have.status(200);
+        const ids = pm.response.json().product.categories.map((c) => c.id);
+        pm.expect(ids).to.have.lengthOf(1);
+        pm.expect(ids).to.eql([Number(pm.collectionVariables.get('categoryId'))]);
+      });

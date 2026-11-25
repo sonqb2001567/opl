@@ -14,7 +14,7 @@ body:
       "productName": "Nón test chưa mua",
       "skuCode": "{{productSku3}}",
       "price": 50000,
-      "categoryId": {{categoryId}},
+      "categoryIds": [{{categoryId}}],
       "description": "Không ai mua - dùng test chặn đánh giá khi chưa mua và báo cáo hết hàng"
     }
 scripts:

@@ -1,0 +1,28 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/auth/verify-email'
+order: 1200
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "{{customerEmail}}",
+      "otp": "{{wrongOtp}}"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Chọn một mã chắc chắn khác mã thật
+      const realOtp = pm.collectionVariables.get('customerOtp');
+      pm.collectionVariables.set('wrongOtp', realOtp === '000000' ? '111111' : '000000');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('OTP sai phải bị từ chối (400)', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.json().message).to.include('không đúng');
+      });

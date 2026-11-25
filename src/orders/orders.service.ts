@@ -14,7 +14,9 @@ export class OrdersService {
     private readonly settingsService: SettingsService,
   ) {}
 
-  // Khách hàng đặt hàng từ giỏ hàng
+  // Khách hàng đặt hàng từ giỏ hàng.
+  // Order - OrderDetail là quan hệ 1-1 nên MỖI SẢN PHẨM trong giỏ thành MỘT ĐƠN RIÊNG:
+  // giỏ có 3 sản phẩm => tạo 3 đơn hàng, mỗi đơn có đúng 1 dòng chi tiết.
   async placeOrder(customerId: number, dto: CreateOrderDto) {
     // 1. Lấy giỏ hàng
     const cart = await this.prisma.cart.findUnique({
@@ -38,11 +40,13 @@ export class OrdersService {
       }
     }
 
-    // 3. Tính tiền hàng (giá lấy từ DB, không tin giá từ client gửi lên)
-    let subtotal = 0;
-    for (const item of cart.cartItems) {
-      subtotal += Number(item.product.price) * item.quantity;
-    }
+    // 3. Tính tiền hàng từng dòng (giá lấy từ DB, không tin giá từ client gửi lên)
+    const lines = cart.cartItems.map((item) => ({
+      item,
+      lineSubtotal: Number(item.product.price) * item.quantity,
+      lineDiscount: 0,
+    }));
+    const subtotal = lines.reduce((sum, line) => sum + line.lineSubtotal, 0);
 
     // 4. Kiểm tra mã giảm giá (nếu có)
     let discountAmount = 0;
@@ -56,56 +60,84 @@ export class OrdersService {
       discountAmount = Math.min(Number(voucher.discountValue), subtotal);
     }
 
-    // 5. Phí vận chuyển lấy từ cấu hình hệ thống
+    // 5. Chia tiền giảm giá cho từng đơn theo tỷ lệ tiền hàng.
+    //    Phần lẻ do làm tròn được dồn vào đơn cuối để tổng giảm giá khớp đúng mã.
+    let remainingDiscount = discountAmount;
+    lines.forEach((line, index) => {
+      const isLast = index === lines.length - 1;
+      line.lineDiscount = isLast
+        ? remainingDiscount
+        : Math.min(remainingDiscount, Math.round((discountAmount * line.lineSubtotal) / subtotal));
+      remainingDiscount -= line.lineDiscount;
+    });
+
+    // 6. Phí vận chuyển lấy từ cấu hình hệ thống, tính cho từng đơn
+    //    vì mỗi đơn được giao độc lập
     const shippingFee = this.settingsService.getShippingFee();
 
-    // 6. Tổng tiền tính ở backend
-    const totalAmount = subtotal - discountAmount + shippingFee;
-
-    // 7. Tạo đơn hàng + chi tiết + trừ kho + xóa giỏ trong 1 transaction
+    // 7. Tạo các đơn hàng + chi tiết + trừ kho + xóa giỏ trong 1 transaction
     //    để đảm bảo dữ liệu nhất quán, không trừ kho nhiều lần
-    const order = await this.prisma.$transaction(async (tx) => {
-      const newOrder = await tx.order.create({
-        data: {
-          customerId,
-          shippingAddress: dto.shippingAddress,
-          paymentMethod: dto.paymentMethod,
-          paymentStatus: 'UNPAID',
-          shippingFee,
-          discountAmount,
-          totalAmount,
-          status: 'PENDING',
-          orderDetails: {
-            create: cart.cartItems.map((item) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.product.price, // lưu giá tại thời điểm đặt hàng
-            })),
-          },
-        },
-        include: { orderDetails: { include: { product: true } } },
-      });
+    const orders = await this.prisma.$transaction(async (tx) => {
+      const created = [];
 
-      // Ghi nhận xuất kho cho từng sản phẩm trong đơn
-      for (const item of cart.cartItems) {
+      for (const line of lines) {
+        const newOrder = await tx.order.create({
+          data: {
+            customerId,
+            shippingAddress: dto.shippingAddress,
+            paymentMethod: dto.paymentMethod,
+            paymentStatus: 'UNPAID',
+            shippingFee,
+            discountAmount: line.lineDiscount,
+            totalAmount: line.lineSubtotal - line.lineDiscount + shippingFee,
+            status: 'PENDING',
+            // Quan hệ 1-1: tạo đúng 1 dòng chi tiết cho đơn
+            orderDetail: {
+              create: {
+                productId: line.item.productId,
+                quantity: line.item.quantity,
+                unitPrice: line.item.product.price, // lưu giá tại thời điểm đặt hàng
+              },
+            },
+          },
+          include: { orderDetail: { include: { product: true } } },
+        });
+
+        // Ghi nhận xuất kho cho sản phẩm của đơn
         await tx.inventoryTransaction.create({
           data: {
-            productId: item.productId,
+            productId: line.item.productId,
             staffId: customerId, // người thực hiện là khách đặt hàng
             transactionType: 'EXPORT',
-            quantity: item.quantity,
+            quantity: line.item.quantity,
             reason: `Xuất kho cho đơn hàng #${newOrder.id}`,
           },
         });
+
+        created.push(newOrder);
       }
 
       // Xóa giỏ hàng sau khi đặt thành công
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
-      return newOrder;
+      return created;
     });
 
-    return { message: 'Đặt hàng thành công', order };
+    return {
+      message:
+        orders.length === 1
+          ? 'Đặt hàng thành công'
+          : `Đặt hàng thành công, giỏ hàng được tách thành ${orders.length} đơn (mỗi đơn 1 sản phẩm)`,
+      orderCount: orders.length,
+      orders,
+      summary: {
+        subtotal,
+        discountAmount,
+        shippingFee, // phí mỗi đơn
+        totalShippingFee: shippingFee * orders.length,
+        totalAmount: subtotal - discountAmount + shippingFee * orders.length,
+      },
+    };
   }
 
   // Khách xem lịch sử mua hàng của mình
@@ -116,7 +148,7 @@ export class OrdersService {
     }
     return this.prisma.order.findMany({
       where,
-      include: { orderDetails: { include: { product: { select: { id: true, productName: true, imageUrl: true } } } } },
+      include: { orderDetail: { include: { product: { select: { id: true, productName: true, imageUrl: true } } } } },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -125,7 +157,7 @@ export class OrdersService {
   async getMyOrder(customerId: number, orderId: number) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { orderDetails: { include: { product: true } } },
+      include: { orderDetail: { include: { product: true } } },
     });
     if (!order || order.customerId !== customerId) {
       throw new NotFoundException('Không tìm thấy đơn hàng');
@@ -166,7 +198,7 @@ export class OrdersService {
       where: { id: orderId },
       include: {
         customer: { select: { id: true, fullName: true, email: true, phoneNumber: true } },
-        orderDetails: { include: { product: true } },
+        orderDetail: { include: { product: true } },
       },
     });
     if (!order) {
@@ -225,7 +257,7 @@ export class OrdersService {
     const cancelled = await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id: orderId },
-        include: { orderDetails: true },
+        include: { orderDetail: true },
       });
       if (!order) {
         throw new NotFoundException('Không tìm thấy đơn hàng');
@@ -238,14 +270,14 @@ export class OrdersService {
         throw new BadRequestException('Đơn hàng đã giao, không thể hủy');
       }
 
-      // Hoàn kho: nhập lại số lượng đã xuất khi tạo đơn
-      for (const detail of order.orderDetails) {
+      // Hoàn kho: nhập lại số lượng đã xuất khi tạo đơn (1-1 nên chỉ có 1 dòng)
+      if (order.orderDetail) {
         await tx.inventoryTransaction.create({
           data: {
-            productId: detail.productId,
+            productId: order.orderDetail.productId,
             staffId: userId,
             transactionType: 'IMPORT',
-            quantity: detail.quantity,
+            quantity: order.orderDetail.quantity,
             reason: `Hoàn kho do hủy đơn hàng #${order.id}`,
           },
         });

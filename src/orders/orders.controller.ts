@@ -3,6 +3,7 @@ import {
   ApiBadRequestResponse,
   ApiBody,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiQuery,
   ApiTags,
@@ -33,7 +34,37 @@ export class OrdersController {
     summary: '[Customer] Đặt hàng từ giỏ hàng',
     description:
       'Lấy toàn bộ sản phẩm đang có trong giỏ để tạo đơn, trừ tồn kho rồi xóa giỏ. ' +
-      'Giỏ hàng phải có ít nhất 1 sản phẩm.',
+      'Giỏ hàng phải có ít nhất 1 sản phẩm.\n\n' +
+      '**Order - OrderDetail là quan hệ 1-1**, nên mỗi sản phẩm trong giỏ được tách thành một đơn riêng: ' +
+      'giỏ 3 sản phẩm → 3 đơn hàng, mỗi đơn 1 dòng chi tiết. Phí vận chuyển tính cho từng đơn, ' +
+      'tiền giảm giá của voucher chia theo tỷ lệ tiền hàng giữa các đơn.',
+  })
+  @ApiOkResponse({
+    description: 'Đặt hàng thành công',
+    schema: {
+      example: {
+        message: 'Đặt hàng thành công, giỏ hàng được tách thành 2 đơn (mỗi đơn 1 sản phẩm)',
+        orderCount: 2,
+        orders: [
+          {
+            id: 11,
+            status: 'PENDING',
+            paymentStatus: 'UNPAID',
+            shippingFee: 30000,
+            discountAmount: 40000,
+            totalAmount: 29980000,
+            orderDetail: { id: 11, productId: 1, quantity: 1, unitPrice: 29990000 },
+          },
+        ],
+        summary: {
+          subtotal: 32990000,
+          discountAmount: 50000,
+          shippingFee: 30000,
+          totalShippingFee: 60000,
+          totalAmount: 33000000,
+        },
+      },
+    },
   })
   @ApiBadRequestResponse({ description: 'Giỏ hàng trống, không đủ tồn kho, hoặc mã giảm giá không hợp lệ' })
   @ApiAuth('CUSTOMER')

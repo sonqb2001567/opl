@@ -2,7 +2,7 @@
 -- OPL Ecommerce Backend - Script tạo lại database PostgreSQL
 -- =====================================================================
 --
--- Script này tạo lại TOÀN BỘ database từ đầu: 11 bảng, 10 kiểu enum,
+-- Script này tạo lại TOÀN BỘ database từ đầu: 13 bảng, 11 kiểu enum,
 -- khoá ngoại, index, bản ghi migration của Prisma và tài khoản admin
 -- mặc định.
 --
@@ -53,9 +53,11 @@ DROP TABLE IF EXISTS "reviews" CASCADE;
 DROP TABLE IF EXISTS "order_details" CASCADE;
 DROP TABLE IF EXISTS "orders" CASCADE;
 DROP TABLE IF EXISTS "inventory_transactions" CASCADE;
+DROP TABLE IF EXISTS "product_categories" CASCADE;
 DROP TABLE IF EXISTS "products" CASCADE;
 DROP TABLE IF EXISTS "categories" CASCADE;
 DROP TABLE IF EXISTS "vouchers" CASCADE;
+DROP TABLE IF EXISTS "verification_codes" CASCADE;
 DROP TABLE IF EXISTS "users" CASCADE;
 DROP TABLE IF EXISTS "_prisma_migrations" CASCADE;
 
@@ -70,6 +72,7 @@ DROP TYPE IF EXISTS "PaymentMethod";
 DROP TYPE IF EXISTS "PaymentStatus";
 DROP TYPE IF EXISTS "ReviewStatus";
 DROP TYPE IF EXISTS "VoucherStatus";
+DROP TYPE IF EXISTS "VerificationCodeType";
 
 -- ---------------------------------------------------------------------
 -- 2. Kiểu enum
@@ -84,6 +87,7 @@ CREATE TYPE "PaymentMethod" AS ENUM ('COD', 'BANK_TRANSFER', 'E_WALLET');
 CREATE TYPE "PaymentStatus" AS ENUM ('UNPAID', 'PAID', 'FAILED', 'REFUNDED');
 CREATE TYPE "ReviewStatus" AS ENUM ('VISIBLE', 'HIDDEN');
 CREATE TYPE "VoucherStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+CREATE TYPE "VerificationCodeType" AS ENUM ('EMAIL_VERIFY', 'PASSWORD_RESET');
 
 -- ---------------------------------------------------------------------
 -- 3. Tạo bảng
@@ -100,10 +104,27 @@ CREATE TABLE "users" (
     "address" TEXT,
     "role" "UserRole" NOT NULL DEFAULT 'CUSTOMER',
     "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
+    -- NULL = email chưa xác thực OTP => chưa đăng nhập được
+    "email_verified_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("user_id")
+);
+
+-- Mã OTP 6 số gửi qua email (xác thực email / đặt lại mật khẩu).
+-- Chỉ lưu bản băm bcrypt của mã, không lưu mã gốc.
+CREATE TABLE "verification_codes" (
+    "verification_code_id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "type" "VerificationCodeType" NOT NULL,
+    "code_hash" VARCHAR(255) NOT NULL,
+    "expires_at" TIMESTAMP(3) NOT NULL,
+    "consumed_at" TIMESTAMP(3),
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "verification_codes_pkey" PRIMARY KEY ("verification_code_id")
 );
 
 -- Danh mục sản phẩm
@@ -117,10 +138,9 @@ CREATE TABLE "categories" (
     CONSTRAINT "categories_pkey" PRIMARY KEY ("category_id")
 );
 
--- Sản phẩm
+-- Sản phẩm (danh mục nằm ở bảng trung gian product_categories)
 CREATE TABLE "products" (
     "product_id" SERIAL NOT NULL,
-    "category_id" INTEGER NOT NULL,
     "product_name" VARCHAR(255) NOT NULL,
     "sku_code" VARCHAR(50) NOT NULL,
     "price" DECIMAL(12,2) NOT NULL,
@@ -131,6 +151,16 @@ CREATE TABLE "products" (
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "products_pkey" PRIMARY KEY ("product_id")
+);
+
+-- Bảng trung gian của quan hệ N-N Category <-> Product.
+-- Khoá chính ghép nên 1 sản phẩm không gán trùng 1 danh mục hai lần.
+CREATE TABLE "product_categories" (
+    "product_id" INTEGER NOT NULL,
+    "category_id" INTEGER NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "product_categories_pkey" PRIMARY KEY ("product_id", "category_id")
 );
 
 -- Phiếu nhập / xuất / điều chỉnh kho
@@ -164,7 +194,7 @@ CREATE TABLE "orders" (
     CONSTRAINT "orders_pkey" PRIMARY KEY ("order_id")
 );
 
--- Chi tiết đơn hàng
+-- Chi tiết đơn hàng (1 đơn - 1 dòng chi tiết, xem UNIQUE ở mục 4)
 CREATE TABLE "order_details" (
     "order_detail_id" SERIAL NOT NULL,
     "order_id" INTEGER NOT NULL,
@@ -230,8 +260,9 @@ CREATE TABLE "cart_items" (
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 CREATE UNIQUE INDEX "categories_category_name_key" ON "categories"("category_name");
 CREATE UNIQUE INDEX "products_sku_code_key" ON "products"("sku_code");
-CREATE INDEX "products_category_id_idx" ON "products"("category_id");
 CREATE INDEX "products_status_idx" ON "products"("status");
+CREATE INDEX "product_categories_category_id_idx" ON "product_categories"("category_id");
+CREATE INDEX "verification_codes_user_id_type_created_at_idx" ON "verification_codes"("user_id", "type", "created_at");
 CREATE INDEX "inventory_transactions_product_id_idx" ON "inventory_transactions"("product_id");
 CREATE INDEX "inventory_transactions_staff_id_idx" ON "inventory_transactions"("staff_id");
 CREATE INDEX "inventory_transactions_created_at_idx" ON "inventory_transactions"("created_at");
@@ -239,7 +270,8 @@ CREATE INDEX "orders_customer_id_idx" ON "orders"("customer_id");
 CREATE INDEX "orders_status_idx" ON "orders"("status");
 CREATE INDEX "orders_created_at_idx" ON "orders"("created_at");
 CREATE INDEX "order_details_product_id_idx" ON "order_details"("product_id");
-CREATE UNIQUE INDEX "order_details_order_id_product_id_key" ON "order_details"("order_id", "product_id");
+-- UNIQUE trên order_id => quan hệ Order - OrderDetail là 1-1
+CREATE UNIQUE INDEX "order_details_order_id_key" ON "order_details"("order_id");
 CREATE INDEX "reviews_product_id_status_idx" ON "reviews"("product_id", "status");
 CREATE INDEX "reviews_customer_id_idx" ON "reviews"("customer_id");
 CREATE UNIQUE INDEX "vouchers_code_key" ON "vouchers"("code");
@@ -251,7 +283,11 @@ CREATE UNIQUE INDEX "cart_items_cart_id_product_id_key" ON "cart_items"("cart_id
 -- ---------------------------------------------------------------------
 -- 5. Khoá ngoại
 -- ---------------------------------------------------------------------
-ALTER TABLE "products" ADD CONSTRAINT "products_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "categories"("category_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "verification_codes" ADD CONSTRAINT "verification_codes_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("user_id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "product_categories" ADD CONSTRAINT "product_categories_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("product_id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "product_categories" ADD CONSTRAINT "product_categories_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "categories"("category_id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "inventory_transactions" ADD CONSTRAINT "inventory_transactions_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("product_id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -276,12 +312,12 @@ ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_product_id_fkey" FOREIGN KEY
 -- ---------------------------------------------------------------------
 -- 6. Đồng bộ trạng thái migration cho Prisma
 -- ---------------------------------------------------------------------
--- Đánh dấu migration `20261031174921_init` là ĐÃ CHẠY, để `npx prisma
--- migrate status` / `migrate dev` không đòi reset lại database.
--- Checksum là SHA-256 của prisma/migrations/20261031174921_init/migration.sql.
+-- Đánh dấu các migration là ĐÃ CHẠY, để `npx prisma migrate status` /
+-- `migrate dev` không đòi reset lại database.
+-- Checksum là SHA-256 của từng file prisma/migrations/<tên>/migration.sql.
 --
--- Nếu sau này file migration đó bị sửa và Prisma báo lỗi checksum, chạy:
---   npx prisma migrate resolve --applied 20261031174921_init
+-- Nếu sau này file migration bị sửa và Prisma báo lỗi checksum, chạy:
+--   npx prisma migrate resolve --applied <tên migration>
 CREATE TABLE "_prisma_migrations" (
     "id" VARCHAR(36) NOT NULL,
     "checksum" VARCHAR(64) NOT NULL,
@@ -297,26 +333,40 @@ CREATE TABLE "_prisma_migrations" (
 
 INSERT INTO "_prisma_migrations"
   ("id", "checksum", "finished_at", "migration_name", "started_at", "applied_steps_count")
-VALUES (
-  gen_random_uuid()::text,
-  '6e99907f7e12d315078d6c2f3fa673844f024bad32220a1f98a8cc0671289cfd',
-  now(),
-  '20261031174921_init',
-  now(),
-  1
-);
+VALUES
+  (
+    gen_random_uuid()::text,
+    '6e99907f7e12d315078d6c2f3fa673844f024bad32220a1f98a8cc0671289cfd',
+    now(),
+    '20261031174921_init',
+    now(),
+    1
+  ),
+  (
+    gen_random_uuid()::text,
+    'a46bc69dff843a7c2671ec5a247a269068d97032bf408c44c94d78e82c4cbc16',
+    now(),
+    '20261125093000_email_otp_product_category_nn_order_1_1',
+    now(),
+    1
+  );
 
 -- ---------------------------------------------------------------------
 -- 7. Dữ liệu khởi tạo: tài khoản admin
 -- ---------------------------------------------------------------------
 -- Mật khẩu đã hash bcrypt. Đăng nhập: admin@test.com / admin123
-INSERT INTO "users" ("full_name", "email", "password", "role", "status", "created_at", "updated_at")
+-- email_verified_at được set sẵn nên admin đăng nhập được ngay, không cần OTP.
+--
+-- Cách khác không cần chạy SQL: bỏ đoạn INSERT này, đặt ADMIN_SETUP_KEY trong
+-- .env rồi gọi POST /auth/bootstrap-admin với header x-setup-key.
+INSERT INTO "users" ("full_name", "email", "password", "role", "status", "email_verified_at", "created_at", "updated_at")
 VALUES (
   'Quản Trị Viên',
   'admin@test.com',
   '$2b$10$i0IGmB3ElkF.N4Jbf3LEc.SlZvgHrdEMpG5BH/W4Z3lJPIPF2nSnS',
   'ADMIN',
   'ACTIVE',
+  now(),
   now(),
   now()
 )

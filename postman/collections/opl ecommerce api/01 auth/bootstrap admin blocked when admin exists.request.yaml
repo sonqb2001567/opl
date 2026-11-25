@@ -1,0 +1,26 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/auth/bootstrap-admin'
+order: 14000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: x-setup-key
+    value: '{{adminSetupKey}}'
+body:
+  type: json
+  content: |-
+    {
+      "fullName": "Admin Thứ Hai",
+      "email": "admin2@test.com",
+      "password": "admin123"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // DB test đã có admin@test.com, nên API tạo admin đầu tiên phải bị chặn.
+      // Trả 403 cả khi chưa đặt ADMIN_SETUP_KEY, sai key, hoặc đã có admin.
+      pm.test('Không tạo thêm admin qua bootstrap khi đã có admin (403)', () => {
+        pm.response.to.have.status(403);
+      });

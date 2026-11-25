@@ -62,6 +62,17 @@ services:
       # Để trống khi chưa có domain cố định - Swagger tự lấy origin của trang.
       PUBLIC_URL: ${PUBLIC_URL:-}
       TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      # Key tạo tài khoản admin đầu tiên qua POST /auth/bootstrap-admin.
+      # Để trống thì endpoint đó bị tắt (403), dùng prisma/seed-admin.sql thay thế.
+      ADMIN_SETUP_KEY: ${ADMIN_SETUP_KEY:-}
+      # SMTP gửi mã OTP xác thực email / quên mật khẩu.
+      # Để trống cả 3 biến HOST/USER/PASS => mã OTP chỉ in ra log container và
+      # trả về trong response (field devOtp). Tiện test, không dùng cho thật.
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASS: ${MAIL_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     ports:
       - '${APP_PORT:-3000}:3000'
     volumes:

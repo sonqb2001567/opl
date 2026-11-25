@@ -21,20 +21,55 @@ scripts:
     code: |-
       pm.test('Đặt hàng COD kèm voucher thành công (201)', () => {
         pm.response.to.have.status(201);
-        const order = pm.response.json().order;
-        pm.expect(order.status).to.eql('PENDING');
-        pm.expect(order.paymentStatus).to.eql('UNPAID');
-        pm.expect(order.orderDetails.length).to.eql(2);
-        pm.collectionVariables.set('orderId', order.id);
+        const res = pm.response.json();
+        // Order - OrderDetail là 1-1: giỏ 2 sản phẩm => 2 đơn, mỗi đơn 1 dòng chi tiết
+        pm.expect(res.orderCount).to.eql(2);
+        pm.expect(res.orders).to.have.lengthOf(2);
+        res.orders.forEach((o) => {
+          pm.expect(o.status).to.eql('PENDING');
+          pm.expect(o.paymentStatus).to.eql('UNPAID');
+          pm.expect(o.orderDetail).to.be.an('object');
+        });
+      });
+      pm.test('Mỗi đơn chứa đúng 1 sản phẩm khác nhau', () => {
+        const orders = pm.response.json().orders;
+        const productId = Number(pm.collectionVariables.get('productId'));
+        const productId2 = Number(pm.collectionVariables.get('productId2'));
+
+        const orderOfProduct1 = orders.find((o) => o.orderDetail.productId === productId);
+        const orderOfProduct2 = orders.find((o) => o.orderDetail.productId === productId2);
+        pm.expect(orderOfProduct1, 'phải có đơn cho sản phẩm 1').to.not.be.undefined;
+        pm.expect(orderOfProduct2, 'phải có đơn cho sản phẩm 2').to.not.be.undefined;
+        pm.expect(orderOfProduct1.orderDetail.quantity).to.eql(2);
+        pm.expect(orderOfProduct2.orderDetail.quantity).to.eql(1);
+
+        // Flow xử lý đơn + đánh giá ở các folder sau chạy trên đơn của sản phẩm 1
+        pm.collectionVariables.set('orderId', orderOfProduct1.id);
+        pm.collectionVariables.set('splitOrderId', orderOfProduct2.id);
       });
       pm.test('Tổng tiền do backend tính đúng công thức', () => {
-        const order = pm.response.json().order;
+        const res = pm.response.json();
         const subtotal =
           2 * Number(pm.collectionVariables.get('productPrice')) +
           1 * Number(pm.collectionVariables.get('product2Price'));
         const discount = Number(pm.collectionVariables.get('voucherDiscount'));
         const shippingFee = Number(pm.collectionVariables.get('shippingFee'));
-        pm.expect(Number(order.discountAmount)).to.eql(discount);
-        pm.expect(Number(order.shippingFee)).to.eql(shippingFee);
-        pm.expect(Number(order.totalAmount)).to.eql(subtotal - discount + shippingFee);
+
+        // Phí ship tính cho từng đơn, giảm giá chia theo tỷ lệ tiền hàng
+        pm.expect(res.summary.subtotal).to.eql(subtotal);
+        pm.expect(res.summary.discountAmount).to.eql(discount);
+        pm.expect(res.summary.shippingFee).to.eql(shippingFee);
+        pm.expect(res.summary.totalShippingFee).to.eql(shippingFee * 2);
+        pm.expect(res.summary.totalAmount).to.eql(subtotal - discount + shippingFee * 2);
+
+        // Tổng giảm giá của các đơn phải khớp đúng giá trị voucher
+        const sumDiscount = res.orders.reduce((s, o) => s + Number(o.discountAmount), 0);
+        pm.expect(sumDiscount).to.eql(discount);
+
+        // Mỗi đơn: tiền hàng của chính nó - giảm giá được chia + phí ship
+        res.orders.forEach((o) => {
+          const lineSubtotal = Number(o.orderDetail.unitPrice) * o.orderDetail.quantity;
+          pm.expect(Number(o.shippingFee)).to.eql(shippingFee);
+          pm.expect(Number(o.totalAmount)).to.eql(lineSubtotal - Number(o.discountAmount) + shippingFee);
+        });
       });

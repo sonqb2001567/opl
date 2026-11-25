@@ -98,6 +98,24 @@ SWAGGER_PATH=docs        # đường dẫn trang tài liệu, mặc định "doc
 SWAGGER_ENABLED=true     # đặt "false" để tắt trang tài liệu (nên tắt ở production)
 ```
 
+Gửi email mã OTP (xác thực email khi đăng ký, quên mật khẩu). **Bỏ trống thì mã OTP
+được in ra console của server và trả kèm trong response ở field `devOtp`** — tiện cho
+dev/test, và cũng là cấu hình mà bộ test Postman cần:
+
+```ini
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USER=email_cua_ban@gmail.com
+MAIL_PASS=app_password_16_ky_tu      # Gmail: dùng App Password, không dùng mật khẩu thường
+MAIL_FROM="OPL Shop <email_cua_ban@gmail.com>"
+```
+
+Chỉ cần khi muốn tạo tài khoản admin qua API thay vì chạy SQL (xem mục 3):
+
+```ini
+ADMIN_SETUP_KEY=chuoi_bi_mat_cua_rieng_ban
+```
+
 `.env` nằm trong `.gitignore` — mỗi người tự tạo file này trên máy mình, không commit.
 
 ### Bước 4 — Sinh Prisma Client
@@ -133,6 +151,20 @@ Script SQL đã tạo sẵn tài khoản quản trị:
 | Email | Mật khẩu | Role |
 |---|---|---|
 | `admin@test.com` | `admin123` | `ADMIN` |
+
+**Cách khác — tạo admin qua API, không cần chạy SQL.** Đặt `ADMIN_SETUP_KEY` trong
+`.env`, bỏ đoạn `INSERT` admin trong `database-setup.sql`, rồi gọi:
+
+```bash
+curl -X POST http://localhost:3000/auth/bootstrap-admin \
+  -H "Content-Type: application/json" \
+  -H "x-setup-key: chuoi_bi_mat_cua_rieng_ban" \
+  -d "{\"fullName\":\"Quan Tri Vien\",\"email\":\"admin@test.com\",\"password\":\"admin123\"}"
+```
+
+API này **chỉ chạy được khi hệ thống chưa có admin nào** — gọi lần thứ hai trả
+`403`. Tài khoản tạo ra được xác thực email sẵn nên đăng nhập được ngay. Muốn thêm
+admin về sau thì dùng `POST /users` với token của admin hiện có.
 
 ```bash
 curl -X POST http://localhost:3000/auth/login \
@@ -170,13 +202,28 @@ curl -X POST http://localhost:3000/users \
   -d "{\"fullName\":\"NV San Pham\",\"email\":\"ps@test.com\",\"password\":\"123456\",\"role\":\"PRODUCT_STAFF\"}"
 ```
 
-Tạo tương tự với `"role":"INVENTORY_STAFF"`. Khách hàng thì tự đăng ký qua
-`POST /auth/register` (luôn được gán role `CUSTOMER`).
+Tạo tương tự với `"role":"INVENTORY_STAFF"` hoặc `"role":"ADMIN"`. Khách hàng thì
+tự đăng ký qua `POST /auth/register` (luôn được gán role `CUSTOMER`).
 
-`POST /users` chỉ tạo được nhân viên — `CreateStaffDto` giới hạn `role` trong
-`PRODUCT_STAFF` / `INVENTORY_STAFF`, không tạo được `ADMIN` hay `CUSTOMER`.
-Mật khẩu tối thiểu 6 ký tự. Muốn thêm admin thứ hai thì chạy SQL thủ công trong
-Postgres hoặc dùng `PATCH /users/:id/role`.
+`POST /users` không tạo được `CUSTOMER` — khách hàng phải tự đăng ký để đi qua bước
+xác thực email. Mật khẩu tối thiểu 6 ký tự. Tài khoản do admin tạo ở đây được đánh
+dấu đã xác thực email nên đăng nhập được ngay, không cần OTP.
+
+### Xác thực email bằng OTP
+
+Khách hàng tự đăng ký **chưa đăng nhập được ngay**. Luồng đầy đủ:
+
+1. `POST /auth/register` → hệ thống gửi mã OTP 6 số tới email, hiệu lực 10 phút.
+   Đăng nhập lúc này trả `401 Email chưa được xác thực`.
+2. `POST /auth/verify-email` với `{ email, otp }` → xác thực xong mới đăng nhập được.
+3. Mã hết hạn / nhập sai quá 5 lần thì gọi `POST /auth/resend-otp` (giãn cách 60 giây).
+
+Quên mật khẩu: `POST /auth/forgot-password` → nhận OTP → `POST /auth/reset-password`
+với `{ email, otp, newPassword }`. Không cần mật khẩu cũ.
+
+Khi `.env` **chưa** có `MAIL_HOST`/`MAIL_USER`/`MAIL_PASS`, mã OTP được in ra console
+của server và trả kèm trong response ở field `devOtp` để test không cần hộp thư thật.
+Có cấu hình SMTP rồi thì `devOtp` không bao giờ xuất hiện trong response.
 
 ---
 
@@ -196,6 +243,10 @@ Postgres hoặc dùng `PATCH /users/:id/role`.
 | `npm run db:seed:admin` | Chỉ seed lại tài khoản admin (không xoá gì) |
 | `npm run test:api` | Chạy bộ test API Postman |
 | `npm run test:api:report` | Chạy test API + xuất report ra `postman/reports/` |
+
+> Bộ test API lấy mã OTP từ field `devOtp` trong response, nên khi chạy `test:api`
+> thì **không được cấu hình `MAIL_HOST`/`MAIL_USER`/`MAIL_PASS`** trong `.env`.
+> Có SMTP thật thì mã chỉ nằm trong email và các test xác thực/quên mật khẩu sẽ fail.
 
 Bộ test API nằm ở `postman/collections/opl ecommerce api/`. Cần cài Postman CLI và
 đăng nhập (`postman login`) trước khi chạy `test:api`.
@@ -312,13 +363,18 @@ Không có global prefix — route nằm ngay ở gốc. "Công khai" = không c
 
 ### Xác thực — `/auth`
 
-| Method | Route | Quyền |
-|---|---|---|
-| POST | `/auth/register` | Công khai |
-| POST | `/auth/login` | Công khai |
-| POST | `/auth/change-password` | Đã đăng nhập |
-| GET | `/auth/me` | Đã đăng nhập |
-| PATCH | `/auth/me` | Đã đăng nhập |
+| Method | Route | Quyền | Ghi chú |
+|---|---|---|---|
+| POST | `/auth/register` | Công khai | Gửi OTP xác thực email |
+| POST | `/auth/verify-email` | Công khai | Nhập OTP để kích hoạt tài khoản |
+| POST | `/auth/resend-otp` | Công khai | Gửi lại OTP, giãn cách 60 giây |
+| POST | `/auth/forgot-password` | Công khai | Gửi OTP đặt lại mật khẩu |
+| POST | `/auth/reset-password` | Công khai | Đặt mật khẩu mới bằng OTP |
+| POST | `/auth/bootstrap-admin` | Setup key | Tạo admin đầu tiên, header `x-setup-key` |
+| POST | `/auth/login` | Công khai | Chặn nếu email chưa xác thực |
+| POST | `/auth/change-password` | Đã đăng nhập | Cần mật khẩu cũ |
+| GET | `/auth/me` | Đã đăng nhập | |
+| PATCH | `/auth/me` | Đã đăng nhập | |
 
 ### Người dùng — `/users` (toàn bộ: `ADMIN`)
 
@@ -351,11 +407,17 @@ Không có global prefix — route nằm ngay ở gốc. "Công khai" = không c
 | GET | `/products/:id` | Công khai |
 | POST | `/products` | `PRODUCT_STAFF` |
 | PATCH | `/products/:id` | `PRODUCT_STAFF` |
+| PUT | `/products/:id/categories` | `PRODUCT_STAFF` |
+| DELETE | `/products/:id/categories/:categoryId` | `PRODUCT_STAFF` |
 | PATCH | `/products/:id/discontinue` | `PRODUCT_STAFF` |
 | PATCH | `/products/:id/resume` | `PRODUCT_STAFF` |
 | DELETE | `/products/:id` | `PRODUCT_STAFF` |
 | POST | `/products/:id/image` | `PRODUCT_STAFF` (upload file) |
 | DELETE | `/products/:id/image` | `PRODUCT_STAFF` |
+
+**Danh mục là quan hệ N-N**: tạo/sửa sản phẩm dùng mảng `categoryIds`, response trả
+về mảng `categories`. Mỗi sản phẩm phải thuộc ít nhất 1 danh mục đang `ACTIVE`.
+`GET /products?categoryId=1` lọc những sản phẩm có danh mục 1 trong danh sách của nó.
 
 Ảnh upload lưu vào `uploads/` (thư mục tự tạo khi chạy server, không commit) và
 truy cập qua `http://localhost:3000/uploads/<tên-file>`.
@@ -396,6 +458,15 @@ Tồn kho không lưu thành cột riêng — tính từ bảng `inventory_trans
 | GET | `/orders/:id` | `INVENTORY_STAFF`, `ADMIN` |
 | PATCH | `/orders/:id/status` | `INVENTORY_STAFF` |
 | POST | `/orders/:id/cancel-by-staff` | `INVENTORY_STAFF` |
+
+**Order – OrderDetail là quan hệ 1-1**: mỗi đơn có đúng 1 dòng chi tiết. Khi đặt
+hàng, giỏ có N sản phẩm sẽ được **tách thành N đơn riêng**. Vì vậy `POST /orders`
+trả về mảng `orders` (kèm `orderCount` và `summary`) thay vì một đơn duy nhất, và
+mọi response đơn hàng dùng field `orderDetail` (object) thay cho `orderDetails` (mảng).
+
+Phí vận chuyển tính cho **từng đơn** (mỗi đơn giao độc lập); tiền giảm giá của
+voucher được chia cho các đơn theo tỷ lệ tiền hàng, phần lẻ do làm tròn dồn vào đơn
+cuối nên tổng giảm giá luôn khớp đúng giá trị voucher.
 
 ### Đánh giá — `/reviews`
 
@@ -440,7 +511,7 @@ Phí vận chuyển lưu trong bộ nhớ (`src/settings/settings.service.ts`), 
 ```
 ecommerce-webapp/
 ├── prisma/
-│   ├── schema.prisma            # Định nghĩa 11 model
+│   ├── schema.prisma            # Định nghĩa 12 model
 │   ├── database-setup.sql       # Script tạo lại DB cho người mới clone
 │   ├── seed-admin.sql           # Chỉ seed admin (DB đã có sẵn bảng)
 │   └── migrations/              # Migration history của Prisma
@@ -449,7 +520,8 @@ ecommerce-webapp/
 │   ├── swagger.ts               # Cấu hình trang tài liệu API /docs
 │   ├── app.module.ts
 │   ├── prisma/                  # PrismaService (driver adapter Postgres)
-│   ├── auth/                    # Đăng ký, đăng nhập, JWT strategy
+│   ├── auth/                    # Đăng ký, OTP, quên mật khẩu, đăng nhập, JWT strategy
+│   ├── mail/                    # Gửi email OTP qua SMTP (nodemailer), fallback log console
 │   ├── common/                  # JwtAuthGuard, RolesGuard, decorators (@ApiAuth)
 │   ├── users/ categories/ products/ inventory/
 │   ├── cart/ orders/ reviews/ vouchers/

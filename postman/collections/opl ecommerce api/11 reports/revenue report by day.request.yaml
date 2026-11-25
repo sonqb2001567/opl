@@ -18,11 +18,12 @@ scripts:
         pm.expect(res.totalRevenue).to.be.above(0);
         pm.expect(res.chart).to.be.an('array');
         pm.expect(res.chart.length).to.be.at.least(1);
-        // Doanh thu phải gồm ít nhất tổng tiền của đơn vừa giao
-        const orderTotal =
-          2 * Number(pm.collectionVariables.get('productPrice')) +
-          1 * Number(pm.collectionVariables.get('product2Price')) -
+        // Folder 09 chỉ giao đơn của sản phẩm 1 (2 cái), đơn của sản phẩm 2 vẫn PENDING.
+        // Phần giảm giá voucher chia cho đơn này nhiều nhất là toàn bộ voucherDiscount,
+        // nên lấy mức tối thiểu để so sánh.
+        const minDeliveredTotal =
+          2 * Number(pm.collectionVariables.get('productPrice')) -
           Number(pm.collectionVariables.get('voucherDiscount')) +
           Number(pm.collectionVariables.get('shippingFee'));
-        pm.expect(res.totalRevenue).to.be.at.least(orderTotal);
+        pm.expect(res.totalRevenue).to.be.at.least(minDeliveredTotal);
       });

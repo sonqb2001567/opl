@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/products'
+order: 6700
+headers:
+  - key: Authorization
+    value: 'Bearer {{productStaffToken}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Sản phẩm không danh mục",
+      "skuCode": "SKU-NO-CAT-1",
+      "price": 99000,
+      "categoryIds": []
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Sản phẩm phải thuộc ít nhất 1 danh mục (400)', () => {
+        pm.response.to.have.status(400);
+      });

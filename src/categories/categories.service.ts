@@ -69,11 +69,12 @@ export class CategoriesService {
     });
   }
 
-  // Xóa danh mục - phải kiểm tra còn sản phẩm liên kết không
+  // Xóa danh mục - phải kiểm tra còn sản phẩm liên kết không.
+  // Quan hệ N-N nên đếm qua bảng trung gian product_categories.
   async remove(id: number) {
     await this.findOne(id);
 
-    const productCount = await this.prisma.product.count({
+    const productCount = await this.prisma.productCategory.count({
       where: { categoryId: id },
     });
     if (productCount > 0) {

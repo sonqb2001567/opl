@@ -14,7 +14,7 @@ body:
       "productName": "Sản phẩm danh mục ảo",
       "skuCode": "SKU-GHOST-1",
       "price": 99000,
-      "categoryId": 999999
+      "categoryIds": [999999]
     }
 scripts:
   - type: afterResponse
